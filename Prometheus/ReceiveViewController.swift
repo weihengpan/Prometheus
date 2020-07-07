@@ -9,7 +9,7 @@
 import UIKit
 import AVFoundation
 
-class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate {
+class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate {
     
     // MARK: - IB Outlets and Related
     
@@ -48,7 +48,7 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
     
     // MARK: - Video Processing
     
-    internal func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+    internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         /// - Todo: Process video frames
     }
 
@@ -71,6 +71,7 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
     private(set) var dualCameraDeviceInput: AVCaptureDeviceInput!
     private let wideCameraVideoDataOutput = AVCaptureVideoDataOutput()
     private let telephotoCameraVideoDataOutput = AVCaptureVideoDataOutput()
+    private var dataOutputSynchronizer: AVCaptureDataOutputSynchronizer!
     
     private func configureSession() {
         guard case .success(_) = setupResult else { return }
@@ -140,8 +141,6 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
             session.addOutputWithNoConnections(telephotoCameraVideoDataOutput)
             wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             telephotoCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
-            wideCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
-            telephotoCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
             
             // Add video data connections
             let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [widePort], output: wideCameraVideoDataOutput)
@@ -160,10 +159,8 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
             session.addConnection(telephotoCameraVideoDataOutputConnection)
             
             // Add video preview layer connections
-            let widePreviewLayerConnection = AVCaptureConnection(inputPort: widePort,
-                                                                 videoPreviewLayer: widePreviewLayer)
-            let telephotoPreviewLayerConnection = AVCaptureConnection(inputPort: telephotoPort,
-                                                                      videoPreviewLayer: telephotoPreviewLayer)
+            let widePreviewLayerConnection = AVCaptureConnection(inputPort: widePort, videoPreviewLayer: widePreviewLayer)
+            let telephotoPreviewLayerConnection = AVCaptureConnection(inputPort: telephotoPort, videoPreviewLayer: telephotoPreviewLayer)
             guard session.canAddConnection(widePreviewLayerConnection) else {
                 print("[Session Configuration] Could not add wide camera preview layer connection.")
                 setupResult = .configurationFailed
@@ -177,8 +174,14 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
             session.addConnection(widePreviewLayerConnection)
             session.addConnection(telephotoPreviewLayerConnection)
             
+            // Add data output synchronizer
+            dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput])
+            dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
+    
             // Check system cost
             print("[Session Configuration] MultiCam system pressure cost: \(multiCamSession.systemPressureCost), hardware cost: \(multiCamSession.hardwareCost)")
+            
+            print("[Session Configuration] Session configuration is successful.")
                         
         } else {
             
