@@ -1,5 +1,5 @@
 //
-//  SecondViewController.swift
+//  SendViewController.swift
 //  Prometheus
 //
 //  Created by 潘维恒 on 2020/7/7.
@@ -8,7 +8,7 @@
 
 import UIKit
 
-class SecondViewController: UIViewController {
+class SendViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()

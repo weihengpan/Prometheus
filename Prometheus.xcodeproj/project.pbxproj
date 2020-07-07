@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163624B448CD005F391A /* AppDelegate.swift */; };
 		4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163824B448CD005F391A /* SceneDelegate.swift */; };
-		4CE9163B24B448CD005F391A /* FirstViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163A24B448CD005F391A /* FirstViewController.swift */; };
-		4CE9163D24B448CD005F391A /* SecondViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163C24B448CD005F391A /* SecondViewController.swift */; };
+		4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163A24B448CD005F391A /* ReceiveViewController.swift */; };
+		4CE9163D24B448CD005F391A /* SendViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163C24B448CD005F391A /* SendViewController.swift */; };
 		4CE9164024B448CD005F391A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4CE9163E24B448CD005F391A /* Main.storyboard */; };
 		4CE9164224B448D0005F391A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CE9164124B448D0005F391A /* Assets.xcassets */; };
 		4CE9164524B448D0005F391A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4CE9164324B448D0005F391A /* LaunchScreen.storyboard */; };
@@ -39,8 +39,8 @@
 		4CE9163324B448CD005F391A /* Prometheus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prometheus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE9163624B448CD005F391A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4CE9163824B448CD005F391A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		4CE9163A24B448CD005F391A /* FirstViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstViewController.swift; sourceTree = "<group>"; };
-		4CE9163C24B448CD005F391A /* SecondViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondViewController.swift; sourceTree = "<group>"; };
+		4CE9163A24B448CD005F391A /* ReceiveViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiveViewController.swift; sourceTree = "<group>"; };
+		4CE9163C24B448CD005F391A /* SendViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendViewController.swift; sourceTree = "<group>"; };
 		4CE9163F24B448CD005F391A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		4CE9164124B448D0005F391A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4CE9164424B448D0005F391A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -103,8 +103,8 @@
 			children = (
 				4CE9163624B448CD005F391A /* AppDelegate.swift */,
 				4CE9163824B448CD005F391A /* SceneDelegate.swift */,
-				4CE9163A24B448CD005F391A /* FirstViewController.swift */,
-				4CE9163C24B448CD005F391A /* SecondViewController.swift */,
+				4CE9163A24B448CD005F391A /* ReceiveViewController.swift */,
+				4CE9163C24B448CD005F391A /* SendViewController.swift */,
 				4CE9163E24B448CD005F391A /* Main.storyboard */,
 				4CE9164124B448D0005F391A /* Assets.xcassets */,
 				4CE9164324B448D0005F391A /* LaunchScreen.storyboard */,
@@ -262,8 +262,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CE9163D24B448CD005F391A /* SecondViewController.swift in Sources */,
-				4CE9163B24B448CD005F391A /* FirstViewController.swift in Sources */,
+				4CE9163D24B448CD005F391A /* SendViewController.swift in Sources */,
+				4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */,
 				4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */,
 				4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */,
 			);
