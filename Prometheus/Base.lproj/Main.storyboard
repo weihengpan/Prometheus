@@ -34,11 +34,27 @@
                                     </view>
                                 </subviews>
                             </stackView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Wide" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="NBa-hi-Eox">
+                                <rect key="frame" x="89" y="625.5" width="39.5" height="20.5"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Telephoto" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="M6B-wd-nPI">
+                                <rect key="frame" x="267.5" y="625" width="76" height="20.5"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
+                            <constraint firstItem="M6B-wd-nPI" firstAttribute="top" secondItem="DjX-cg-GIn" secondAttribute="bottom" constant="19.5" id="5KJ-1H-Tvm"/>
+                            <constraint firstItem="M6B-wd-nPI" firstAttribute="centerX" secondItem="DjX-cg-GIn" secondAttribute="centerX" id="WNA-V8-uyZ"/>
                             <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerY" secondItem="tsR-hK-woN" secondAttribute="centerY" id="Yah-Yx-EBi"/>
+                            <constraint firstItem="NBa-hi-Eox" firstAttribute="top" secondItem="hEu-q4-d2Y" secondAttribute="bottom" constant="20" id="fcw-uh-mSp"/>
                             <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerX" secondItem="tsR-hK-woN" secondAttribute="centerX" id="lQK-9Y-sXg"/>
+                            <constraint firstItem="NBa-hi-Eox" firstAttribute="centerX" secondItem="hEu-q4-d2Y" secondAttribute="centerX" id="lge-rn-4GM"/>
                             <constraint firstItem="wA3-Fx-ua1" firstAttribute="leading" secondItem="PQr-Ze-W5v" secondAttribute="leading" constant="20" id="u07-hM-ByZ"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="PQr-Ze-W5v"/>
