@@ -45,6 +45,12 @@ class ReceiveViewController: UIViewController, AVCaptureVideoDataOutputSampleBuf
             }
         }
     }
+    
+    // MARK: - Video Processing
+    
+    internal func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        /// - Todo: Process video frames
+    }
 
     // MARK: - Capture Session Management
     
