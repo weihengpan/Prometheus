@@ -7,26 +7,56 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
-        <!--Receive-->
+        <!--Receive View Controller-->
         <scene sceneID="hNz-n2-bh7">
             <objects>
-                <viewController id="9pv-A4-QxB" customClass="ReceiveViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="9pv-A4-QxB" userLabel="Receive View Controller" customClass="ReceiveViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="tsR-hK-woN">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <stackView opaque="NO" contentMode="scaleToFill" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="wA3-Fx-ua1">
+                                <rect key="frame" x="20" y="290.5" width="374" height="315"/>
+                                <subviews>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hEu-q4-d2Y" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="0.0" width="177" height="315"/>
+                                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                        <constraints>
+                                            <constraint firstAttribute="width" secondItem="hEu-q4-d2Y" secondAttribute="height" multiplier="9:16" id="OTu-w4-Pde"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="DjX-cg-GIn" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
+                                        <rect key="frame" x="197" y="0.0" width="177" height="315"/>
+                                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                        <constraints>
+                                            <constraint firstAttribute="width" secondItem="DjX-cg-GIn" secondAttribute="height" multiplier="9:16" id="wsZ-pQ-26e"/>
+                                        </constraints>
+                                    </view>
+                                </subviews>
+                            </stackView>
+                        </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <constraints>
+                            <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerY" secondItem="tsR-hK-woN" secondAttribute="centerY" id="Yah-Yx-EBi"/>
+                            <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerX" secondItem="tsR-hK-woN" secondAttribute="centerX" id="lQK-9Y-sXg"/>
+                            <constraint firstItem="wA3-Fx-ua1" firstAttribute="leading" secondItem="PQr-Ze-W5v" secondAttribute="leading" constant="20" id="u07-hM-ByZ"/>
+                        </constraints>
                         <viewLayoutGuide key="safeArea" id="PQr-Ze-W5v"/>
                     </view>
                     <tabBarItem key="tabBarItem" title="Receive" image="square.and.arrow.down" catalog="system" id="acW-dT-cKf"/>
+                    <connections>
+                        <outlet property="telephotoPreviewView" destination="DjX-cg-GIn" id="gLZ-EB-F5m"/>
+                        <outlet property="widePreviewView" destination="hEu-q4-d2Y" id="eB0-Ca-mkB"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="W5J-7L-Pyd" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="750" y="-320"/>
+            <point key="canvasLocation" x="749.27536231884062" y="-320.08928571428572"/>
         </scene>
-        <!--Send-->
+        <!--Send View Controller-->
         <scene sceneID="wg7-f3-ORb">
             <objects>
-                <viewController id="8rJ-Kc-sve" customClass="SendViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="8rJ-Kc-sve" userLabel="Send View Controller" customClass="SendViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="QS5-Rx-YEW">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

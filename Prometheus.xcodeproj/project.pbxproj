@@ -16,6 +16,7 @@
 		4CE9164524B448D0005F391A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4CE9164324B448D0005F391A /* LaunchScreen.storyboard */; };
 		4CE9165024B448D0005F391A /* PrometheusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9164F24B448D0005F391A /* PrometheusTests.swift */; };
 		4CE9165B24B448D0005F391A /* PrometheusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9165A24B448D0005F391A /* PrometheusUITests.swift */; };
+		4CE9166924B45A0C005F391A /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9166824B45A0C005F391A /* PreviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 		4CE9165624B448D0005F391A /* PrometheusUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PrometheusUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE9165A24B448D0005F391A /* PrometheusUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrometheusUITests.swift; sourceTree = "<group>"; };
 		4CE9165C24B448D0005F391A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4CE9166824B45A0C005F391A /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +107,7 @@
 				4CE9163824B448CD005F391A /* SceneDelegate.swift */,
 				4CE9163A24B448CD005F391A /* ReceiveViewController.swift */,
 				4CE9163C24B448CD005F391A /* SendViewController.swift */,
+				4CE9166824B45A0C005F391A /* PreviewView.swift */,
 				4CE9163E24B448CD005F391A /* Main.storyboard */,
 				4CE9164124B448D0005F391A /* Assets.xcassets */,
 				4CE9164324B448D0005F391A /* LaunchScreen.storyboard */,
@@ -262,6 +265,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CE9166924B45A0C005F391A /* PreviewView.swift in Sources */,
 				4CE9163D24B448CD005F391A /* SendViewController.swift in Sources */,
 				4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */,
 				4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */,
