@@ -9,7 +9,7 @@
 import UIKit
 import AVFoundation
 
-class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate {
+class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureMetadataOutputObjectsDelegate {
     
     // MARK: - IB Outlets and Related
     
@@ -44,7 +44,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                 self.session.startRunning()
                 
                 // Print video spec
-                let printsAvailableMultiCamFormats = true
                 for input in self.session.inputs {
                     guard let input = input as? AVCaptureDeviceInput else { continue }
                     let format = input.device.activeFormat
@@ -54,6 +53,7 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                     print("[Info] Video max frame rate: \(maxFrameRate)")
                     
                     // Print available formats
+                    let printsAvailableMultiCamFormats = false
                     if printsAvailableMultiCamFormats {
                         print("------ Available MultiCam formats ------")
                         let formats = input.device.formats
@@ -74,8 +74,64 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     
     // MARK: - Video Processing
     
+    private let ciContext = CIContext()
+    private var detector: CIDetector!
+    private var frameNumber = 1
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
-        /// - Todo: Process video frames
+        
+        func detectQRCode(sampleBuffer: CMSampleBuffer, caption: String) {
+            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+            let image = CIImage(cvImageBuffer: imageBuffer)
+            let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
+            for code in codes {
+                guard let messageString = code.messageString else { continue }
+                print("\(caption): \(messageString.count) bytes received")
+            }
+        }
+        
+        if detector == nil {
+            detector = CIDetector(ofType: CIDetectorTypeQRCode, context: ciContext, options: nil)
+        }
+        
+        if frameNumber <= 120 {
+            
+            defer { frameNumber += 1 }
+            
+            let count = synchronizedDataCollection.count
+            //guard count > 2 else { return }
+            print("[Synchronizer] Frame number: \(frameNumber)")
+            
+            if let wideCameraVideoData = synchronizedDataCollection[wideCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+                //print("[Synchronizer] Wide camera video frame received")
+                let sampleBuffer = wideCameraVideoData.sampleBuffer
+                detectQRCode(sampleBuffer: sampleBuffer, caption: "Wide")
+            }
+            if let telephotoCameraVideoData = synchronizedDataCollection[telephotoCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+                //print("[Synchronizer] Telephoto camera video frame received")
+                let sampleBuffer = telephotoCameraVideoData.sampleBuffer
+                detectQRCode(sampleBuffer: sampleBuffer, caption: "Telephoto")
+            }
+            if let wideCameraMetadataObjectData = synchronizedDataCollection[wideCameraMetadataOutput] as? AVCaptureSynchronizedMetadataObjectData {
+                let metadataObjects = wideCameraMetadataObjectData.metadataObjects
+                for object in metadataObjects {
+                    guard let code = object as? AVMetadataMachineReadableCodeObject else { continue }
+                    guard let text = code.stringValue else { continue }
+                    //print("[Synchronizer] Wide camera QR code detected, text length:\t\t\(text.count)")
+                }
+            }
+            if let telephotoCameraMetadataObjectData = synchronizedDataCollection[telephotoCameraMetadataOutput] as? AVCaptureSynchronizedMetadataObjectData {
+                let metadataObjects = telephotoCameraMetadataObjectData.metadataObjects
+                for object in metadataObjects {
+                    guard let code = object as? AVMetadataMachineReadableCodeObject else { continue }
+                    guard let text = code.stringValue else { continue }
+                    //print("[Synchronizer] Telephoto camera QR code detected, text length:\t\(text.count)")
+                }
+            }
+            
+            print()
+        }
+        
+        
     }
     
     // MARK: - Capture Session Management
@@ -97,6 +153,8 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     private(set) var dualCameraDeviceInput: AVCaptureDeviceInput!
     private let wideCameraVideoDataOutput = AVCaptureVideoDataOutput()
     private let telephotoCameraVideoDataOutput = AVCaptureVideoDataOutput()
+    private let wideCameraMetadataOutput = AVCaptureMetadataOutput()
+    private let telephotoCameraMetadataOutput = AVCaptureMetadataOutput()
     private var dataOutputSynchronizer: AVCaptureDataOutputSynchronizer!
     
     private func configureSession() {
@@ -132,22 +190,45 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                     setupResult = .configurationFailed
                     return
             }
+            do {
+                try dualCamera.lockForConfiguration()
+                dualCamera.focusMode = .continuousAutoFocus
+                dualCamera.unlockForConfiguration()
+            } catch let error {
+                print("[Session Configuration] Could not lock dual camera for configuration: \(error)")
+            }
             session.addInputWithNoConnections(dualCameraDeviceInput)
             
             // Find ports of the constituent devices of the device input
-            guard let widePort = dualCameraDeviceInput.ports(for: .video,
+            guard let wideCameraVideoPort = dualCameraDeviceInput.ports(for: .video,
                                                              sourceDeviceType: .builtInWideAngleCamera,
                                                              sourceDevicePosition: dualCamera.position).first
                 else {
-                    print("[Session Configuration] Could not find wide camera input port.")
+                    print("[Session Configuration] Could not find wide camera video port.")
                     setupResult = .configurationFailed
                     return
             }
-            guard let telephotoPort = dualCameraDeviceInput.ports(for: .video,
+            guard let telephotoCameraVideoPort = dualCameraDeviceInput.ports(for: .video,
                                                                   sourceDeviceType: .builtInTelephotoCamera,
                                                                   sourceDevicePosition: dualCamera.position).first
                 else {
-                    print("[Session Configuration] Could not find telephoto camera input port.")
+                    print("[Session Configuration] Could not find telephoto camera video port.")
+                    setupResult = .configurationFailed
+                    return
+            }
+            guard let wideCameraMetadataObjectPort = dualCameraDeviceInput.ports(for: .metadataObject,
+                                                                        sourceDeviceType: .builtInWideAngleCamera,
+                                                                        sourceDevicePosition: dualCamera.position).first
+                else {
+                    print("[Session Configuration] Could not find wide camera metadata port.")
+                    setupResult = .configurationFailed
+                    return
+            }
+            guard let telephotoCameraMetadataObjectPort = dualCameraDeviceInput.ports(for: .metadataObject,
+                                                                             sourceDeviceType: .builtInTelephotoCamera,
+                                                                             sourceDevicePosition: dualCamera.position).first
+                else {
+                    print("[Session Configuration] Could not find telephoto camera metadata port.")
                     setupResult = .configurationFailed
                     return
             }
@@ -168,9 +249,23 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             telephotoCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             
+            // Add metadata outputs
+            guard session.canAddOutput(wideCameraMetadataOutput) else {
+                print("[Session Configuration] Could not add wide camera metadata output.")
+                setupResult = .configurationFailed
+                return
+            }
+            guard session.canAddOutput(telephotoCameraMetadataOutput) else {
+                print("[Session Configuration] Could not add telephoto camera metadata output.")
+                setupResult = .configurationFailed
+                return
+            }
+            session.addOutputWithNoConnections(wideCameraMetadataOutput)
+            session.addOutputWithNoConnections(telephotoCameraMetadataOutput)
+            
             // Add video data connections
-            let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [widePort], output: wideCameraVideoDataOutput)
-            let telephotoCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [telephotoPort], output: telephotoCameraVideoDataOutput)
+            let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraVideoPort], output: wideCameraVideoDataOutput)
+            let telephotoCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraVideoPort], output: telephotoCameraVideoDataOutput)
             guard session.canAddConnection(wideCameraVideoDataOutputConnection) else {
                 print("[Session Configuration] Could not add wide camera video connection.")
                 setupResult = .configurationFailed
@@ -184,9 +279,27 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             session.addConnection(wideCameraVideoDataOutputConnection)
             session.addConnection(telephotoCameraVideoDataOutputConnection)
             
+            // Add metadata connections
+            let wideCameraMetadataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraMetadataObjectPort], output: wideCameraMetadataOutput)
+            let telephotoCameraMetadataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraMetadataObjectPort], output: telephotoCameraMetadataOutput)
+            guard session.canAddConnection(wideCameraMetadataOutputConnection) else {
+                print("[Session Configuration] Could not add wide camera metadata connection.")
+                setupResult = .configurationFailed
+                return
+            }
+            guard session.canAddConnection(telephotoCameraMetadataOutputConnection) else {
+                print("[Session Configuration] Could not add telephoto camera metadata connection.")
+                setupResult = .configurationFailed
+                return
+            }
+            session.addConnection(wideCameraMetadataOutputConnection)
+            session.addConnection(telephotoCameraMetadataOutputConnection)
+            wideCameraMetadataOutput.metadataObjectTypes = [.qr]
+            telephotoCameraMetadataOutput.metadataObjectTypes = [.qr]
+            
             // Add video preview layer connections
-            let widePreviewLayerConnection = AVCaptureConnection(inputPort: widePort, videoPreviewLayer: widePreviewLayer)
-            let telephotoPreviewLayerConnection = AVCaptureConnection(inputPort: telephotoPort, videoPreviewLayer: telephotoPreviewLayer)
+            let widePreviewLayerConnection = AVCaptureConnection(inputPort: wideCameraVideoPort, videoPreviewLayer: widePreviewLayer)
+            let telephotoPreviewLayerConnection = AVCaptureConnection(inputPort: telephotoCameraVideoPort, videoPreviewLayer: telephotoPreviewLayer)
             guard session.canAddConnection(widePreviewLayerConnection) else {
                 print("[Session Configuration] Could not add wide camera preview layer connection.")
                 setupResult = .configurationFailed
@@ -201,7 +314,8 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             session.addConnection(telephotoPreviewLayerConnection)
             
             // Add data output synchronizer
-            dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput])
+            let dataOutputs = [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput, wideCameraMetadataOutput, telephotoCameraMetadataOutput]
+            dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: dataOutputs)
             dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
             
             // Check system cost
