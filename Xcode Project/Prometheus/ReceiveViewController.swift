@@ -20,7 +20,7 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     private weak var telephotoPreviewLayer: AVCaptureVideoPreviewLayer!
     
     // MARK: - View Controller Lifecycle
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -42,6 +42,32 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
         sessionQueue.async {
             if case .success(_) = self.setupResult {
                 self.session.startRunning()
+                
+                // Print video spec
+                let printsAvailableMultiCamFormats = true
+                for input in self.session.inputs {
+                    guard let input = input as? AVCaptureDeviceInput else { continue }
+                    let format = input.device.activeFormat
+                    let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                    print("[Info] Video dimensions: \(dimensions.width)x\(dimensions.height)")
+                    let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+                    print("[Info] Video max frame rate: \(maxFrameRate)")
+                    
+                    // Print available formats
+                    if printsAvailableMultiCamFormats {
+                        print("------ Available MultiCam formats ------")
+                        let formats = input.device.formats
+                        for format in formats {
+                            guard format.isMultiCamSupported else { continue }
+                            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                            let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+                            let binnedString = format.isVideoBinned ? "binned" : "not binned"
+                            print("\(dimensions.width)x\(dimensions.height) @ \(maxFrameRate) fps, \(binnedString)")
+                            print()
+                        }
+                    }
+                }
+                
             }
         }
     }
@@ -51,7 +77,7 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         /// - Todo: Process video frames
     }
-
+    
     // MARK: - Capture Session Management
     
     private enum SessionSetupResult {
@@ -118,8 +144,8 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                     return
             }
             guard let telephotoPort = dualCameraDeviceInput.ports(for: .video,
-                                                             sourceDeviceType: .builtInTelephotoCamera,
-                                                             sourceDevicePosition: dualCamera.position).first
+                                                                  sourceDeviceType: .builtInTelephotoCamera,
+                                                                  sourceDevicePosition: dualCamera.position).first
                 else {
                     print("[Session Configuration] Could not find telephoto camera input port.")
                     setupResult = .configurationFailed
@@ -177,15 +203,16 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             // Add data output synchronizer
             dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput])
             dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
-    
+            
             // Check system cost
             print("[Session Configuration] MultiCam system pressure cost: \(multiCamSession.systemPressureCost), hardware cost: \(multiCamSession.hardwareCost)")
             
+            setupResult = .success(.builtInDualCamera)
             print("[Session Configuration] Session configuration is successful.")
-                        
+            
         } else {
             
-            print("[Session Configuration] MultiCam is not supported.")
+            print("[Session Configuration] MultiCam is not supported. Reverting to wide camera only mode.")
             
             session = AVCaptureSession()
             
@@ -193,6 +220,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
         }
         
     }
-
+    
 }
 

@@ -76,14 +76,34 @@
                     <view key="view" contentMode="scaleToFill" id="QS5-Rx-YEW">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9JZ-wx-9ki">
+                                <rect key="frame" x="20" y="241.5" width="374" height="374"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" secondItem="9JZ-wx-9ki" secondAttribute="height" multiplier="1:1" id="aZl-ct-BX0"/>
+                                </constraints>
+                            </view>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="J2a-oy-Qto">
+                                <rect key="frame" x="190" y="676" width="34" height="30"/>
+                                <state key="normal" title="Start"/>
+                            </button>
+                        </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <constraints>
+                            <constraint firstItem="J2a-oy-Qto" firstAttribute="top" secondItem="9JZ-wx-9ki" secondAttribute="bottom" constant="60.5" id="6MG-FF-Sv8"/>
+                            <constraint firstItem="J2a-oy-Qto" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="6Qg-dN-vmd"/>
+                            <constraint firstItem="9JZ-wx-9ki" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="SGu-aj-AcF"/>
+                            <constraint firstItem="9JZ-wx-9ki" firstAttribute="centerY" secondItem="O1u-W8-tvY" secondAttribute="centerY" id="Ywz-4K-KsR"/>
+                            <constraint firstItem="O1u-W8-tvY" firstAttribute="trailing" secondItem="9JZ-wx-9ki" secondAttribute="trailing" constant="20" id="mcu-vD-e7I"/>
+                        </constraints>
                         <viewLayoutGuide key="safeArea" id="O1u-W8-tvY"/>
                     </view>
                     <tabBarItem key="tabBarItem" title="Send" image="square.and.arrow.up" catalog="system" id="cPa-gy-q4n"/>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="4Nw-L8-lE0" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="750" y="360"/>
+            <point key="canvasLocation" x="749.27536231884062" y="359.59821428571428"/>
         </scene>
         <!--Tab Bar Controller-->
         <scene sceneID="yl2-sM-qoP">
