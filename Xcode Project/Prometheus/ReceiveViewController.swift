@@ -9,12 +9,30 @@
 import UIKit
 import AVFoundation
 
-class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureMetadataOutputObjectsDelegate {
+final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureMetadataOutputObjectsDelegate {
     
-    // MARK: - IB Outlets and Related
+    // MARK: - IB Outlets, IB Actions and Related
     
     @IBOutlet weak var widePreviewView: PreviewView!
     @IBOutlet weak var telephotoPreviewView: PreviewView!
+    @IBOutlet weak var startButton: UIButton!
+    
+    @IBAction func startButtonDidTouchUpInside(_ sender: Any) {
+        if startButton.currentTitle ?? "" == "Stop" {
+            // Ending data transmission
+            isReceivingMetadata = true
+            isReceivingData = false
+            startButton.setTitle("Start", for: .normal)
+            startButton.isEnabled = false
+        } else {
+            // Starting data transmission
+            receivedData = []
+            receivedFrameIndices = []
+            isReceivingMetadata = false
+            isReceivingData = true
+            startButton.setTitle("Stop", for: .normal)
+        }
+    }
     
     private weak var widePreviewLayer: AVCaptureVideoPreviewLayer!
     private weak var telephotoPreviewLayer: AVCaptureVideoPreviewLayer!
@@ -34,6 +52,9 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
         
         // Disable timed auto-lock
         UIApplication.shared.isIdleTimerDisabled = true
+        
+        // Disable start button
+        startButton.isEnabled = false
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -48,24 +69,20 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                     guard let input = input as? AVCaptureDeviceInput else { continue }
                     let format = input.device.activeFormat
                     let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                    print("[Info] Video dimensions: \(dimensions.width)x\(dimensions.height)")
                     let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-                    print("[Info] Video max frame rate: \(maxFrameRate)")
+                    print("[Info] Video format: \(dimensions.width)x\(dimensions.height)@\(maxFrameRate)fps")
                     
                     // Print available formats
-                    let printsAvailableMultiCamFormats = false
-                    if printsAvailableMultiCamFormats {
-                        print("------ Available MultiCam formats ------")
-                        let formats = input.device.formats
-                        for format in formats {
-                            guard format.isMultiCamSupported else { continue }
-                            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                            let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-                            let binnedString = format.isVideoBinned ? "binned" : "not binned"
-                            print("\(dimensions.width)x\(dimensions.height) @ \(maxFrameRate) fps, \(binnedString)")
-                            print()
-                        }
-                    }
+//                    print("------ Available MultiCam formats ------")
+//                    let formats = input.device.formats
+//                    for format in formats {
+//                        guard format.isMultiCamSupported else { continue }
+//                        let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+//                        let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+//                        let binnedString = format.isVideoBinned ? "binned" : "not binned"
+//                        print("\(dimensions.width)x\(dimensions.height) @ \(maxFrameRate) fps, \(binnedString)")
+//                        print()
+//                    }
                 }
                 
             }
@@ -77,63 +94,111 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     private let ciContext = CIContext()
     private var detector: CIDetector!
     private var frameNumber = 1
+    private var isReceivingData = false
+    private var isReceivingMetadata = true
+    private var totalCountOfFrames = 0
+    private var receivedFrameIndices = Set<UInt32>()
+    private var receivedData = [Data]()
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         
-        func detectQRCode(sampleBuffer: CMSampleBuffer, caption: String) {
-            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
-            let image = CIImage(cvImageBuffer: imageBuffer)
-            let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
-            for code in codes {
-                guard let messageString = code.messageString else { continue }
-                print("\(caption): \(messageString.count) bytes received")
-            }
-        }
-        
         if detector == nil {
-            detector = CIDetector(ofType: CIDetectorTypeQRCode, context: ciContext, options: nil)
+            let options: [String : Any] = [CIDetectorAccuracy : CIDetectorAccuracyHigh,
+                                           CIDetectorMaxFeatureCount: 2,
+                                           CIDetectorMinFeatureSize: 0.2]
+            detector = CIDetector(ofType: CIDetectorTypeQRCode, context: ciContext, options: options)
         }
         
-        if frameNumber <= 120 {
-            
-            defer { frameNumber += 1 }
-            
-            let count = synchronizedDataCollection.count
-            //guard count > 2 else { return }
-            print("[Synchronizer] Frame number: \(frameNumber)")
-            
-            if let wideCameraVideoData = synchronizedDataCollection[wideCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
-                //print("[Synchronizer] Wide camera video frame received")
-                let sampleBuffer = wideCameraVideoData.sampleBuffer
-                detectQRCode(sampleBuffer: sampleBuffer, caption: "Wide")
+        if let wideCameraVideoData = synchronizedDataCollection[wideCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+            let sampleBuffer = wideCameraVideoData.sampleBuffer
+            if isReceivingMetadata {
+                detectAndReceiveMetadataPackets(sampleBuffer: sampleBuffer)
+            } else if isReceivingData {
+                detectAndReceiveDataPackets(sampleBuffer: sampleBuffer, caption: "Wide")
             }
-            if let telephotoCameraVideoData = synchronizedDataCollection[telephotoCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
-                //print("[Synchronizer] Telephoto camera video frame received")
-                let sampleBuffer = telephotoCameraVideoData.sampleBuffer
-                detectQRCode(sampleBuffer: sampleBuffer, caption: "Telephoto")
-            }
-            if let wideCameraMetadataObjectData = synchronizedDataCollection[wideCameraMetadataOutput] as? AVCaptureSynchronizedMetadataObjectData {
-                let metadataObjects = wideCameraMetadataObjectData.metadataObjects
-                for object in metadataObjects {
-                    guard let code = object as? AVMetadataMachineReadableCodeObject else { continue }
-                    guard let text = code.stringValue else { continue }
-                    //print("[Synchronizer] Wide camera QR code detected, text length:\t\t\(text.count)")
-                }
-            }
-            if let telephotoCameraMetadataObjectData = synchronizedDataCollection[telephotoCameraMetadataOutput] as? AVCaptureSynchronizedMetadataObjectData {
-                let metadataObjects = telephotoCameraMetadataObjectData.metadataObjects
-                for object in metadataObjects {
-                    guard let code = object as? AVMetadataMachineReadableCodeObject else { continue }
-                    guard let text = code.stringValue else { continue }
-                    //print("[Synchronizer] Telephoto camera QR code detected, text length:\t\(text.count)")
-                }
-            }
-            
-            print()
         }
-        
-        
+        if let telephotoCameraVideoData = synchronizedDataCollection[telephotoCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+            let sampleBuffer = telephotoCameraVideoData.sampleBuffer
+            if isReceivingData {
+                detectAndReceiveDataPackets(sampleBuffer: sampleBuffer, caption: "Telephoto")
+            }
+        }
     }
     
+    func debugPrintQRCode(sampleBuffer: CMSampleBuffer, caption: String) {
+        guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+        let image = CIImage(cvImageBuffer: imageBuffer)
+        let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
+        for code in codes {
+            guard let messageString = code.messageString, let descriptor = code.symbolDescriptor else { continue }
+            let version = descriptor.symbolVersion
+            print("[Synchronizer] \(caption): \(messageString.count) bytes received, version \(version)")
+        }
+    }
+    
+    func detectAndReceiveMetadataPackets(sampleBuffer: CMSampleBuffer) {
+        let codes = detectQRCodes(sampleBuffer: sampleBuffer)
+        for code in codes {
+            guard let descriptor = code.symbolDescriptor else { continue }
+            guard let data = descriptor.data else { continue }
+            guard let packet = MetadataPacket(archive: data) else { continue }
+            
+            guard let fileName = String(bytes: packet.fileNameData, encoding: .utf8) else {
+                print("[Synchronizer] Failed to decode file name in metadata packet.")
+                continue
+            }
+            
+            totalCountOfFrames = Int(packet.numberOfFrames)
+            print("[Synchronizer] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName)")
+            
+            // Update variables
+            isReceivingMetadata = false
+            isReceivingData = false
+            DispatchQueue.main.async {
+                self.startButton.isEnabled = true
+            }
+        }
+    }
+    
+    func detectAndReceiveDataPackets(sampleBuffer: CMSampleBuffer, caption: String) {
+        let codes = detectQRCodes(sampleBuffer: sampleBuffer)
+        for code in codes {
+            guard let descriptor = code.symbolDescriptor else { continue }
+            guard let data = descriptor.data else { continue }
+            guard let packet = DataPacket(archive: data) else { continue }
+            let frameIndex = packet.frameIndex
+            let messageData = packet.payload
+            
+            guard receivedFrameIndices.contains(frameIndex) == false else { continue }
+            receivedFrameIndices.insert(frameIndex)
+            
+            //print("[Synchronizer] \(caption) received, version \(descriptor.symbolVersion), error corrected payload in hex: ")
+            //print(errorCorrectedPayload.hexDescription)
+            
+            receivedData.append(messageData)
+            print("[Synchronizer] \(caption): Frame \(frameIndex) (\(messageData.count) bytes) received, \(receivedData.count) frames received in total")
+                        
+            if receivedData.count == totalCountOfFrames {
+                let combinedData = receivedData.reduce(Data(), +)
+                print("[Synchronizer] All frames received, \(combinedData.count) bytes in total")
+                let encoding = String.Encoding.utf8
+                guard let messageString = String(data: combinedData, encoding: encoding) else {
+                    print("[Synchronizer] Failed to decode data into string with encoding \(encoding)")
+                    return
+                }
+                print("------ BEGIN MESSAGE ------")
+                print(messageString)
+                print("------  END MESSAGE  ------")
+            }
+        }
+    }
+    
+    func detectQRCodes(sampleBuffer: CMSampleBuffer) -> [CIQRCodeFeature] {
+        guard let imageBuffer = sampleBuffer.imageBuffer else { return [] }
+        let image = CIImage(cvImageBuffer: imageBuffer)
+        let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
+        return codes
+    }
+
     // MARK: - Capture Session Management
     
     private enum SessionSetupResult {
@@ -153,8 +218,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     private(set) var dualCameraDeviceInput: AVCaptureDeviceInput!
     private let wideCameraVideoDataOutput = AVCaptureVideoDataOutput()
     private let telephotoCameraVideoDataOutput = AVCaptureVideoDataOutput()
-    private let wideCameraMetadataOutput = AVCaptureMetadataOutput()
-    private let telephotoCameraMetadataOutput = AVCaptureMetadataOutput()
     private var dataOutputSynchronizer: AVCaptureDataOutputSynchronizer!
     
     private func configureSession() {
@@ -192,7 +255,22 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             }
             do {
                 try dualCamera.lockForConfiguration()
-                dualCamera.focusMode = .continuousAutoFocus
+                
+                // Set focus mode to continuous AF
+                //dualCamera.focusMode = .continuousAutoFocus
+                
+                // Set video format to 1920x1080@60fps binned
+                /*
+                for format in dualCamera.formats {
+                    let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                    let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+                    if dimensions.width == 1920 && dimensions.height == 1080
+                        && maxFrameRate == 60
+                        && format.isMultiCamSupported {
+                        dualCamera.activeFormat = format
+                    }
+                }*/
+                
                 dualCamera.unlockForConfiguration()
             } catch let error {
                 print("[Session Configuration] Could not lock dual camera for configuration: \(error)")
@@ -216,22 +294,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
                     setupResult = .configurationFailed
                     return
             }
-            guard let wideCameraMetadataObjectPort = dualCameraDeviceInput.ports(for: .metadataObject,
-                                                                        sourceDeviceType: .builtInWideAngleCamera,
-                                                                        sourceDevicePosition: dualCamera.position).first
-                else {
-                    print("[Session Configuration] Could not find wide camera metadata port.")
-                    setupResult = .configurationFailed
-                    return
-            }
-            guard let telephotoCameraMetadataObjectPort = dualCameraDeviceInput.ports(for: .metadataObject,
-                                                                             sourceDeviceType: .builtInTelephotoCamera,
-                                                                             sourceDevicePosition: dualCamera.position).first
-                else {
-                    print("[Session Configuration] Could not find telephoto camera metadata port.")
-                    setupResult = .configurationFailed
-                    return
-            }
             
             // Add video data outputs
             guard session.canAddOutput(wideCameraVideoDataOutput) else {
@@ -249,20 +311,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             telephotoCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             
-            // Add metadata outputs
-            guard session.canAddOutput(wideCameraMetadataOutput) else {
-                print("[Session Configuration] Could not add wide camera metadata output.")
-                setupResult = .configurationFailed
-                return
-            }
-            guard session.canAddOutput(telephotoCameraMetadataOutput) else {
-                print("[Session Configuration] Could not add telephoto camera metadata output.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addOutputWithNoConnections(wideCameraMetadataOutput)
-            session.addOutputWithNoConnections(telephotoCameraMetadataOutput)
-            
             // Add video data connections
             let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraVideoPort], output: wideCameraVideoDataOutput)
             let telephotoCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraVideoPort], output: telephotoCameraVideoDataOutput)
@@ -278,24 +326,6 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             }
             session.addConnection(wideCameraVideoDataOutputConnection)
             session.addConnection(telephotoCameraVideoDataOutputConnection)
-            
-            // Add metadata connections
-            let wideCameraMetadataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraMetadataObjectPort], output: wideCameraMetadataOutput)
-            let telephotoCameraMetadataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraMetadataObjectPort], output: telephotoCameraMetadataOutput)
-            guard session.canAddConnection(wideCameraMetadataOutputConnection) else {
-                print("[Session Configuration] Could not add wide camera metadata connection.")
-                setupResult = .configurationFailed
-                return
-            }
-            guard session.canAddConnection(telephotoCameraMetadataOutputConnection) else {
-                print("[Session Configuration] Could not add telephoto camera metadata connection.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addConnection(wideCameraMetadataOutputConnection)
-            session.addConnection(telephotoCameraMetadataOutputConnection)
-            wideCameraMetadataOutput.metadataObjectTypes = [.qr]
-            telephotoCameraMetadataOutput.metadataObjectTypes = [.qr]
             
             // Add video preview layer connections
             let widePreviewLayerConnection = AVCaptureConnection(inputPort: wideCameraVideoPort, videoPreviewLayer: widePreviewLayer)
@@ -314,7 +344,7 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
             session.addConnection(telephotoPreviewLayerConnection)
             
             // Add data output synchronizer
-            let dataOutputs = [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput, wideCameraMetadataOutput, telephotoCameraMetadataOutput]
+            let dataOutputs = [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput]
             dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: dataOutputs)
             dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
             
@@ -336,4 +366,5 @@ class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDe
     }
     
 }
+
 

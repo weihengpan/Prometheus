@@ -9,7 +9,7 @@
 import UIKit
 import AVFoundation
 
-class PreviewView: UIView {
+final class PreviewView: UIView {
     var previewLayer: AVCaptureVideoPreviewLayer {
         return layer as! AVCaptureVideoPreviewLayer
     }

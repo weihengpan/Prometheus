@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		4C820F5A24B5E379004A8229 /* NestedQRCodeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */; };
+		4C8C46A924B6056800113A51 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8C46A824B6056800113A51 /* MetalRenderView.swift */; };
+		4C8C46AB24B6F69700113A51 /* DataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8C46AA24B6F69700113A51 /* DataPacket.swift */; };
+		4CC1A20524B7421F00A2CE62 /* MetadataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */; };
+		4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20724B7423B00A2CE62 /* Data+.swift */; };
+		4CC1A20A24B7427200A2CE62 /* CIQRCodeDescriptor+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */; };
+		4CC1A20D24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */; };
 		4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163624B448CD005F391A /* AppDelegate.swift */; };
 		4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163824B448CD005F391A /* SceneDelegate.swift */; };
 		4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163A24B448CD005F391A /* ReceiveViewController.swift */; };
@@ -39,6 +45,12 @@
 
 /* Begin PBXFileReference section */
 		4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestedQRCodeGenerator.swift; sourceTree = "<group>"; };
+		4C8C46A824B6056800113A51 /* MetalRenderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderView.swift; sourceTree = "<group>"; };
+		4C8C46AA24B6F69700113A51 /* DataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPacket.swift; sourceTree = "<group>"; };
+		4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPacket.swift; sourceTree = "<group>"; };
+		4CC1A20724B7423B00A2CE62 /* Data+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+.swift"; sourceTree = "<group>"; };
+		4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIQRCodeDescriptor+.swift"; sourceTree = "<group>"; };
+		4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Alice's Adventures in Wonderland.txt"; sourceTree = "<group>"; };
 		4CE9163324B448CD005F391A /* Prometheus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prometheus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE9163624B448CD005F391A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4CE9163824B448CD005F391A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -82,6 +94,32 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4CC1A20624B7423100A2CE62 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				4CC1A20724B7423B00A2CE62 /* Data+.swift */,
+				4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		4CC1A20B24B74C8100A2CE62 /* Example Files */ = {
+			isa = PBXGroup;
+			children = (
+				4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */,
+			);
+			path = "Example Files";
+			sourceTree = "<group>";
+		};
+		4CC1A20E24B74CCA00A2CE62 /* Packets */ = {
+			isa = PBXGroup;
+			children = (
+				4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */,
+				4C8C46AA24B6F69700113A51 /* DataPacket.swift */,
+			);
+			path = Packets;
+			sourceTree = "<group>";
+		};
 		4CE9162A24B448CD005F391A = {
 			isa = PBXGroup;
 			children = (
@@ -110,8 +148,12 @@
 				4CE9163A24B448CD005F391A /* ReceiveViewController.swift */,
 				4CE9163C24B448CD005F391A /* SendViewController.swift */,
 				4CE9166824B45A0C005F391A /* PreviewView.swift */,
+				4C8C46A824B6056800113A51 /* MetalRenderView.swift */,
 				4CE9163E24B448CD005F391A /* Main.storyboard */,
 				4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */,
+				4CC1A20E24B74CCA00A2CE62 /* Packets */,
+				4CC1A20624B7423100A2CE62 /* Extensions */,
+				4CC1A20B24B74C8100A2CE62 /* Example Files */,
 				4CE9164124B448D0005F391A /* Assets.xcassets */,
 				4CE9164324B448D0005F391A /* LaunchScreen.storyboard */,
 				4CE9164624B448D0005F391A /* Info.plist */,
@@ -242,6 +284,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CC1A20D24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt in Resources */,
 				4CE9164524B448D0005F391A /* LaunchScreen.storyboard in Resources */,
 				4CE9164224B448D0005F391A /* Assets.xcassets in Resources */,
 				4CE9164024B448CD005F391A /* Main.storyboard in Resources */,
@@ -292,9 +335,14 @@
 				4CE9166924B45A0C005F391A /* PreviewView.swift in Sources */,
 				4CE9163D24B448CD005F391A /* SendViewController.swift in Sources */,
 				4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */,
+				4CC1A20524B7421F00A2CE62 /* MetadataPacket.swift in Sources */,
+				4C8C46A924B6056800113A51 /* MetalRenderView.swift in Sources */,
 				4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */,
+				4CC1A20A24B7427200A2CE62 /* CIQRCodeDescriptor+.swift in Sources */,
 				4C820F5A24B5E379004A8229 /* NestedQRCodeGenerator.swift in Sources */,
+				4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */,
 				4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */,
+				4C8C46AB24B6F69700113A51 /* DataPacket.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,7 +516,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 281;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -488,7 +536,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 281;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

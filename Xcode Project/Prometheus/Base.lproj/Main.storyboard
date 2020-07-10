@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="16097" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="49e-Tb-3d3">
-    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <device id="retina6_5" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
@@ -16,17 +16,17 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView opaque="NO" contentMode="scaleToFill" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="wA3-Fx-ua1">
-                                <rect key="frame" x="20" y="290.5" width="374" height="315"/>
+                                <rect key="frame" x="20" y="290.66666666666663" width="374" height="314.66666666666663"/>
                                 <subviews>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hEu-q4-d2Y" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="0.0" width="177" height="315"/>
+                                        <rect key="frame" x="0.0" y="0.0" width="177" height="314.66666666666669"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="hEu-q4-d2Y" secondAttribute="height" multiplier="9:16" id="OTu-w4-Pde"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="DjX-cg-GIn" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="197" y="0.0" width="177" height="315"/>
+                                        <rect key="frame" x="197" y="0.0" width="177" height="314.66666666666669"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="DjX-cg-GIn" secondAttribute="height" multiplier="9:16" id="wsZ-pQ-26e"/>
@@ -35,23 +35,32 @@
                                 </subviews>
                             </stackView>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Wide" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="NBa-hi-Eox">
-                                <rect key="frame" x="89" y="625.5" width="39.5" height="20.5"/>
+                                <rect key="frame" x="89" y="625.33333333333337" width="39.333333333333343" height="20.333333333333371"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Telephoto" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="M6B-wd-nPI">
-                                <rect key="frame" x="267.5" y="625" width="76" height="20.5"/>
+                                <rect key="frame" x="267.66666666666669" y="625" width="76" height="20.333333333333371"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="NJ0-So-Tby">
+                                <rect key="frame" x="190" y="685.33333333333337" width="34" height="30"/>
+                                <state key="normal" title="Start"/>
+                                <connections>
+                                    <action selector="startButtonDidTouchUpInside:" destination="9pv-A4-QxB" eventType="touchUpInside" id="8fg-mQ-jJB"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
+                            <constraint firstItem="NJ0-So-Tby" firstAttribute="top" secondItem="wA3-Fx-ua1" secondAttribute="bottom" constant="80" id="2AP-T1-ux6"/>
                             <constraint firstItem="M6B-wd-nPI" firstAttribute="top" secondItem="DjX-cg-GIn" secondAttribute="bottom" constant="19.5" id="5KJ-1H-Tvm"/>
                             <constraint firstItem="M6B-wd-nPI" firstAttribute="centerX" secondItem="DjX-cg-GIn" secondAttribute="centerX" id="WNA-V8-uyZ"/>
                             <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerY" secondItem="tsR-hK-woN" secondAttribute="centerY" id="Yah-Yx-EBi"/>
+                            <constraint firstItem="NJ0-So-Tby" firstAttribute="centerX" secondItem="PQr-Ze-W5v" secondAttribute="centerX" id="eTD-Y6-5FN"/>
                             <constraint firstItem="NBa-hi-Eox" firstAttribute="top" secondItem="hEu-q4-d2Y" secondAttribute="bottom" constant="20" id="fcw-uh-mSp"/>
                             <constraint firstItem="wA3-Fx-ua1" firstAttribute="centerX" secondItem="tsR-hK-woN" secondAttribute="centerX" id="lQK-9Y-sXg"/>
                             <constraint firstItem="NBa-hi-Eox" firstAttribute="centerX" secondItem="hEu-q4-d2Y" secondAttribute="centerX" id="lge-rn-4GM"/>
@@ -61,6 +70,7 @@
                     </view>
                     <tabBarItem key="tabBarItem" title="Receive" image="square.and.arrow.down" catalog="system" id="acW-dT-cKf"/>
                     <connections>
+                        <outlet property="startButton" destination="NJ0-So-Tby" id="BdT-uS-RYc"/>
                         <outlet property="telephotoPreviewView" destination="DjX-cg-GIn" id="gLZ-EB-F5m"/>
                         <outlet property="widePreviewView" destination="hEu-q4-d2Y" id="eB0-Ca-mkB"/>
                     </connections>
@@ -77,8 +87,8 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9JZ-wx-9ki">
-                                <rect key="frame" x="20" y="241.5" width="374" height="374"/>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9JZ-wx-9ki" customClass="MetalRenderView" customModule="Prometheus" customModuleProvider="target">
+                                <rect key="frame" x="20" y="241.66666666666663" width="374" height="374"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <constraints>
                                     <constraint firstAttribute="width" secondItem="9JZ-wx-9ki" secondAttribute="height" multiplier="1:1" id="aZl-ct-BX0"/>
@@ -87,6 +97,9 @@
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="J2a-oy-Qto">
                                 <rect key="frame" x="190" y="676" width="34" height="30"/>
                                 <state key="normal" title="Start"/>
+                                <connections>
+                                    <action selector="startButtonDidTouchUpInside:" destination="8rJ-Kc-sve" eventType="touchUpInside" id="lhL-nC-dVr"/>
+                                </connections>
                             </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
@@ -95,11 +108,27 @@
                             <constraint firstItem="J2a-oy-Qto" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="6Qg-dN-vmd"/>
                             <constraint firstItem="9JZ-wx-9ki" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="SGu-aj-AcF"/>
                             <constraint firstItem="9JZ-wx-9ki" firstAttribute="centerY" secondItem="O1u-W8-tvY" secondAttribute="centerY" id="Ywz-4K-KsR"/>
+                            <constraint firstItem="J2a-oy-Qto" firstAttribute="bottom" secondItem="O1u-W8-tvY" secondAttribute="bottom" constant="-20" id="jV8-de-MGV"/>
                             <constraint firstItem="O1u-W8-tvY" firstAttribute="trailing" secondItem="9JZ-wx-9ki" secondAttribute="trailing" constant="20" id="mcu-vD-e7I"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="O1u-W8-tvY"/>
+                        <variation key="default">
+                            <mask key="constraints">
+                                <exclude reference="jV8-de-MGV"/>
+                            </mask>
+                        </variation>
+                        <variation key="widthClass=regular">
+                            <mask key="constraints">
+                                <exclude reference="mcu-vD-e7I"/>
+                                <include reference="jV8-de-MGV"/>
+                            </mask>
+                        </variation>
                     </view>
                     <tabBarItem key="tabBarItem" title="Send" image="square.and.arrow.up" catalog="system" id="cPa-gy-q4n"/>
+                    <connections>
+                        <outlet property="renderView" destination="9JZ-wx-9ki" id="eQe-fk-mSr"/>
+                        <outlet property="startButton" destination="J2a-oy-Qto" id="znr-VB-9uC"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="4Nw-L8-lE0" sceneMemberID="firstResponder"/>
             </objects>
