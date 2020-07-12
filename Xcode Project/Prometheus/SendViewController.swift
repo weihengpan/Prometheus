@@ -13,15 +13,16 @@ final class SendViewController: UIViewController {
     
     // MARK: - IB Outlets, IB Actions and Related
     
-    @IBOutlet weak var renderView: MetalRenderView!
+    @IBOutlet weak var topRenderView: MetalRenderView!
+    @IBOutlet weak var bottomRenderView: MetalRenderView!
     @IBOutlet weak var startButton: UIButton!
     
     private var isDisplayingQRCodeImages = false
     @IBAction func startButtonDidTouchUpInside(_ sender: Any) {
         if isDisplayingQRCodeImages {
-            stopDisplayingQRCodeImages()
+            stopDisplayingDataQRCodeImages()
         } else {
-            startDisplayingQRCodeImages()
+            startDisplayingDataQRCodeImages()
         }
         isDisplayingQRCodeImages.toggle()
     }
@@ -36,8 +37,8 @@ final class SendViewController: UIViewController {
     
     private let generationQueue = DispatchQueue(label: "generationQueue", qos: .userInitiated)
     
-    private let maxPacketSize = 1008
-    private let frameRate: TimeInterval = 1.0 / 10.0
+    private let maxPacketSize = 230
+    private let frameRate: TimeInterval = 1.0 / 30.0
     
     // MARK: - View Controller Lifecycle
 
@@ -46,40 +47,53 @@ final class SendViewController: UIViewController {
         
     }
     
-    var generated = false
+    private var generated = false
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        if generated == false {
-            let sideLength = renderView.frame.width * UIScreen.main.scale
-            generationQueue.async {
-                self.generateQRCodeImages(renderViewSideLength: sideLength)
+        // Wait until all leaf subviews have finished layout
+        DispatchQueue.main.async {
+            if self.generated == false {
+                let sideLength = self.topRenderView.frame.width * UIScreen.main.scale
+                self.generationQueue.async {
+                    self.generateQRCodeImagesAndDisplayMetadataCode(renderViewSideLength: sideLength)
+                }
+                self.generated = true
             }
-            generated = true
         }
     }
     
     // MARK: - Methods
     
-    private func startDisplayingQRCodeImages() {
+    private var frameIndex = 0
+    private func startDisplayingDataQRCodeImages() {
         
         guard var codeImagesIterator = dataCodeImages?.makeIterator() else { return }
         codeDisplaySubscription = Timer.publish(every: frameRate, on: .current, in: .common)
             .autoconnect()
             .sink { _ in
-                self.renderView.image = codeImagesIterator.next()
+                if self.frameIndex % 2 == 0 {
+                    self.topRenderView.image = codeImagesIterator.next()
+                    self.bottomRenderView.image = nil
+                } else {
+                    self.bottomRenderView.image = codeImagesIterator.next()
+                    self.topRenderView.image = nil
+                }
+                self.frameIndex += 1
         }
         startButton.setTitle("Reset", for: .normal)
     }
     
-    private func stopDisplayingQRCodeImages() {
+    private func stopDisplayingDataQRCodeImages() {
         guard let subscription = codeDisplaySubscription else { return }
         subscription.cancel()
-        renderView.image = metadataCodeImage
+        topRenderView.image = metadataCodeImage
+        bottomRenderView.image = metadataCodeImage
+        frameIndex = 0
         startButton.setTitle("Start", for: .normal)
     }
     
-    private func generateQRCodeImages(renderViewSideLength sideLength: CGFloat) {
+    private func generateQRCodeImagesAndDisplayMetadataCode(renderViewSideLength sideLength: CGFloat) {
         
         let fileName = "Alice's Adventures in Wonderland"
         let fileExtension = "txt"
@@ -104,7 +118,8 @@ final class SendViewController: UIViewController {
         metadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: metadataPacket, sideLength: sideLength)
         
         DispatchQueue.main.async {
-            self.renderView.image = self.metadataCodeImage
+            self.topRenderView.image = self.metadataCodeImage
+            self.bottomRenderView.image = self.metadataCodeImage
         }
     }
 }

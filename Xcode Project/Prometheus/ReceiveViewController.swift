@@ -9,7 +9,7 @@
 import UIKit
 import AVFoundation
 
-final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureMetadataOutputObjectsDelegate {
+final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate {
     
     // MARK: - IB Outlets, IB Actions and Related
     
@@ -26,7 +26,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             startButton.isEnabled = false
         } else {
             // Starting data transmission
-            receivedData = []
+            receivedDataPackets = []
             receivedFrameIndices = []
             isReceivingMetadata = false
             isReceivingData = true
@@ -91,37 +91,54 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     // MARK: - Video Processing
     
-    private let ciContext = CIContext()
+    private let ciContext = CIContext(options: [.useSoftwareRenderer : false])
     private var detector: CIDetector!
     private var frameNumber = 1
     private var isReceivingData = false
     private var isReceivingMetadata = true
     private var totalCountOfFrames = 0
     private var receivedFrameIndices = Set<UInt32>()
-    private var receivedData = [Data]()
+    private var receivedDataPackets = [DataPacket]()
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         
+        // Intialize detector
         if detector == nil {
             let options: [String : Any] = [CIDetectorAccuracy : CIDetectorAccuracyHigh,
-                                           CIDetectorMaxFeatureCount: 2,
-                                           CIDetectorMinFeatureSize: 0.2]
+                                           CIDetectorTracking : true,
+                                           CIDetectorMaxFeatureCount : 2,
+                                           CIDetectorMinFeatureSize : 0.5]
             detector = CIDetector(ofType: CIDetectorTypeQRCode, context: ciContext, options: options)
         }
         
+        // Detect QR codes
         if let wideCameraVideoData = synchronizedDataCollection[wideCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
             let sampleBuffer = wideCameraVideoData.sampleBuffer
-            if isReceivingMetadata {
-                detectAndReceiveMetadataPackets(sampleBuffer: sampleBuffer)
-            } else if isReceivingData {
-                detectAndReceiveDataPackets(sampleBuffer: sampleBuffer, caption: "Wide")
+            if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                let copiedImageBuffer = imageBuffer.copy()
+                if isReceivingMetadata {
+                    detectAndReceiveMetadataPackets(imageBuffer: copiedImageBuffer)
+                } else if isReceivingData {
+                    detectAndReceiveDataPackets(imageBuffer: copiedImageBuffer, caption: "Wide")
+                }
             }
+        } else {
+            print("[Synchronizer] Warning: data from wide camera is dropped")
         }
+        
         if let telephotoCameraVideoData = synchronizedDataCollection[telephotoCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
-            let sampleBuffer = telephotoCameraVideoData.sampleBuffer
-            if isReceivingData {
-                detectAndReceiveDataPackets(sampleBuffer: sampleBuffer, caption: "Telephoto")
-            }
+            /*let sampleBuffer = telephotoCameraVideoData.sampleBuffer
+            if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                let copiedImageBuffer = imageBuffer.copy()
+                if isReceivingMetadata {
+                    detectAndReceiveMetadataPackets(imageBuffer: copiedImageBuffer)
+                } else if isReceivingData {
+                    detectAndReceiveDataPackets(imageBuffer: copiedImageBuffer, caption: "Wide")
+                }
+            }*/
+        } else {
+            print("[Synchronizer] Warning: data from telephoto camera is dropped")
         }
+        
     }
     
     func debugPrintQRCode(sampleBuffer: CMSampleBuffer, caption: String) {
@@ -135,8 +152,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    func detectAndReceiveMetadataPackets(sampleBuffer: CMSampleBuffer) {
-        let codes = detectQRCodes(sampleBuffer: sampleBuffer)
+    func detectAndReceiveMetadataPackets(imageBuffer: CVPixelBuffer) {
+        let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
@@ -159,26 +176,22 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    func detectAndReceiveDataPackets(sampleBuffer: CMSampleBuffer, caption: String) {
-        let codes = detectQRCodes(sampleBuffer: sampleBuffer)
+    func detectAndReceiveDataPackets(imageBuffer: CVPixelBuffer, caption: String) {
+        let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
             guard let packet = DataPacket(archive: data) else { continue }
             let frameIndex = packet.frameIndex
-            let messageData = packet.payload
             
             guard receivedFrameIndices.contains(frameIndex) == false else { continue }
             receivedFrameIndices.insert(frameIndex)
-            
-            //print("[Synchronizer] \(caption) received, version \(descriptor.symbolVersion), error corrected payload in hex: ")
-            //print(errorCorrectedPayload.hexDescription)
-            
-            receivedData.append(messageData)
-            print("[Synchronizer] \(caption): Frame \(frameIndex) (\(messageData.count) bytes) received, \(receivedData.count) frames received in total")
+            receivedDataPackets.append(packet)
+            print("[Synchronizer] \(caption): Frame \(frameIndex) (\(packet.payload.count) bytes) received, \(receivedDataPackets.count) frames received in total")
                         
-            if receivedData.count == totalCountOfFrames {
-                let combinedData = receivedData.reduce(Data(), +)
+            if receivedDataPackets.count == totalCountOfFrames {
+                receivedDataPackets.sort(by: { $0.frameIndex < $1.frameIndex })
+                let combinedData = receivedDataPackets.lazy.map { $0.payload }.reduce(Data(), +)
                 print("[Synchronizer] All frames received, \(combinedData.count) bytes in total")
                 let encoding = String.Encoding.utf8
                 guard let messageString = String(data: combinedData, encoding: encoding) else {
@@ -192,8 +205,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    func detectQRCodes(sampleBuffer: CMSampleBuffer) -> [CIQRCodeFeature] {
-        guard let imageBuffer = sampleBuffer.imageBuffer else { return [] }
+    func detectQRCodes(imageBuffer: CVPixelBuffer) -> [CIQRCodeFeature] {
         let image = CIImage(cvImageBuffer: imageBuffer)
         let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
         return codes
@@ -207,7 +219,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case configurationFailed
     }
     
-    private let sessionQueue = DispatchQueue(label: "sessionQueue")
+    private let sessionQueue = DispatchQueue(label: "sessionQueue", qos: .userInitiated)
     private let dataOutputQueue = DispatchQueue(label: "dataOutputQueue")
     private var session: AVCaptureSession!
     private var multiCamSession: AVCaptureMultiCamSession! {
@@ -367,4 +379,36 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
 }
 
-
+extension CVPixelBuffer {
+    func copy() -> CVPixelBuffer {
+        precondition(CFGetTypeID(self) == CVPixelBufferGetTypeID(), "copy() cannot be called on a non-CVPixelBuffer")
+        
+        var _copy : CVPixelBuffer?
+        CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            CVPixelBufferGetWidth(self),
+            CVPixelBufferGetHeight(self),
+            CVPixelBufferGetPixelFormatType(self),
+            nil,
+            &_copy)
+        
+        guard let copy = _copy else { fatalError() }
+        
+        CVPixelBufferLockBaseAddress(self, CVPixelBufferLockFlags.readOnly)
+        CVPixelBufferLockBaseAddress(copy, CVPixelBufferLockFlags(rawValue: 0))
+        
+        let copyBaseAddress = CVPixelBufferGetBaseAddress(copy)
+        let currBaseAddress = CVPixelBufferGetBaseAddress(self)
+        
+        //print("copy data size: \(CVPixelBufferGetDataSize(copy))")
+        //print("self data size: \(CVPixelBufferGetDataSize(self))")
+        
+        memcpy(copyBaseAddress, currBaseAddress, CVPixelBufferGetDataSize(copy))
+        //memcpy(copyBaseAddress, currBaseAddress, CVPixelBufferGetDataSize(self) * 2)
+        
+        CVPixelBufferUnlockBaseAddress(copy, CVPixelBufferLockFlags(rawValue: 0))
+        CVPixelBufferUnlockBaseAddress(self, CVPixelBufferLockFlags.readOnly)
+        
+        return copy
+    }
+}
