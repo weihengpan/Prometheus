@@ -11,8 +11,15 @@ import Combine
 
 final class SendViewController: UIViewController {
     
+    private enum SendMode {
+        case single
+        case alternatingSingle
+        case nested
+    }
+    
     // MARK: - IB Outlets, IB Actions and Related
     
+    @IBOutlet weak var singleRenderView: MetalRenderView!
     @IBOutlet weak var topRenderView: MetalRenderView!
     @IBOutlet weak var bottomRenderView: MetalRenderView!
     @IBOutlet weak var startButton: UIButton!
@@ -37,15 +44,12 @@ final class SendViewController: UIViewController {
     
     private let generationQueue = DispatchQueue(label: "generationQueue", qos: .userInitiated)
     
-    private let maxPacketSize = 230
-    private let frameRate: TimeInterval = 1.0 / 30.0
-    
     // MARK: - View Controller Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
-    }
+    } 
     
     private var generated = false
     override func viewDidLayoutSubviews() {
@@ -54,7 +58,13 @@ final class SendViewController: UIViewController {
         // Wait until all leaf subviews have finished layout
         DispatchQueue.main.async {
             if self.generated == false {
-                let sideLength = self.topRenderView.frame.width * UIScreen.main.scale
+                var sideLength: CGFloat
+                switch self.sendMode {
+                case .single, .nested:
+                    sideLength = self.singleRenderView.frame.width * UIScreen.main.scale
+                case .alternatingSingle:
+                    sideLength = self.topRenderView.frame.width * UIScreen.main.scale
+                }
                 self.generationQueue.async {
                     self.generateQRCodeImagesAndDisplayMetadataCode(renderViewSideLength: sideLength)
                 }
@@ -65,20 +75,33 @@ final class SendViewController: UIViewController {
     
     // MARK: - Methods
     
+    private var maxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
+    private var largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 18, errorCorrectionLevel: .quartile)!
+    private var smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
+    private let sendFrameRate = 15.0
+    private var sendMode: SendMode = .nested
     private var frameIndex = 0
     private func startDisplayingDataQRCodeImages() {
         
         guard var codeImagesIterator = dataCodeImages?.makeIterator() else { return }
-        codeDisplaySubscription = Timer.publish(every: frameRate, on: .current, in: .common)
+        codeDisplaySubscription = Timer.publish(every: 1.0 / sendFrameRate, on: .current, in: .common)
             .autoconnect()
             .sink { _ in
-                if self.frameIndex % 2 == 0 {
-                    self.topRenderView.image = codeImagesIterator.next()
-                    self.bottomRenderView.image = nil
-                } else {
-                    self.bottomRenderView.image = codeImagesIterator.next()
-                    self.topRenderView.image = nil
+                
+                let nextImage = codeImagesIterator.next()
+                switch self.sendMode {
+                case .single, .nested:
+                    self.singleRenderView.image = nextImage
+                case .alternatingSingle:
+                    if self.frameIndex % 2 == 0 {
+                        self.topRenderView.image = nextImage
+                        self.bottomRenderView.image = nil
+                    } else {
+                        self.bottomRenderView.image = nextImage
+                        self.topRenderView.image = nil
+                    }
                 }
+                
                 self.frameIndex += 1
         }
         startButton.setTitle("Reset", for: .normal)
@@ -87,8 +110,15 @@ final class SendViewController: UIViewController {
     private func stopDisplayingDataQRCodeImages() {
         guard let subscription = codeDisplaySubscription else { return }
         subscription.cancel()
-        topRenderView.image = metadataCodeImage
-        bottomRenderView.image = metadataCodeImage
+        
+        switch sendMode {
+        case .single, .nested:
+            singleRenderView.image = metadataCodeImage
+        case .alternatingSingle:
+            topRenderView.image = metadataCodeImage
+            bottomRenderView.image = metadataCodeImage
+        }
+            
         frameIndex = 0
         startButton.setTitle("Start", for: .normal)
     }
@@ -107,19 +137,30 @@ final class SendViewController: UIViewController {
             fatalError("[SendVC] Failed to encode message in UTF-8.")
         }
         
-        dataCodeImages = codeGenerator.generateQRCodesForDataPackets(data: messageData, correctionLevel: .low, sideLength: sideLength, maxPacketSize: self.maxPacketSize)
+        var frameCount: Int
+        switch sendMode {
+        case .single, .alternatingSingle:
+            dataCodeImages = codeGenerator.generateQRCodes(forData: messageData, correctionLevel: .low, sideLength: sideLength, maxPacketSize: self.maxPacketSize)
+            frameCount = dataCodeImages!.count
+        case .nested:
+            (dataCodeImages, frameCount) = codeGenerator.generateNestedQRCodes(forData: messageData, largerCodeMaxPacketSize: largerCodeMaxPacketSize, smallerCodeMaxPacketSize: smallerCodeMaxPacketSize, smallerCodeSideLengthRatio: 0.4, sideLength: sideLength)
+        }
         
-        let numberOfFrames = dataCodeImages!.count
         let fileSize = messageData.count
         let fullFileName = fileName + "." + fileExtension
-        guard let metadataPacket = MetadataPacket(flagBits: 0, numberOfFrames: UInt32(numberOfFrames), fileSize: UInt32(fileSize), fileName: fullFileName) else {
+        guard let metadataPacket = MetadataPacket(flagBits: 0, numberOfFrames: UInt32(frameCount), fileSize: UInt32(fileSize), fileName: fullFileName) else {
             fatalError("[SendVC] Failed to create metadata packet.")
         }
         metadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: metadataPacket, sideLength: sideLength)
         
         DispatchQueue.main.async {
-            self.topRenderView.image = self.metadataCodeImage
-            self.bottomRenderView.image = self.metadataCodeImage
+            switch self.sendMode {
+            case .single, .nested:
+                self.singleRenderView.image = self.metadataCodeImage
+            case .alternatingSingle:
+                self.topRenderView.image = self.metadataCodeImage
+                self.bottomRenderView.image = self.metadataCodeImage
+            }
         }
     }
 }

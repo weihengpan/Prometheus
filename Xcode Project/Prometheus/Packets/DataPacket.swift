@@ -24,6 +24,10 @@ struct DataPacket {
         set { header = UInt32(flagBits) << 24 + newValue }
     }
     
+    static var sizeExceptPayload: Int {
+        return 2 * MemoryLayout<UInt32>.size
+    }
+    
     // MARK: - Initializers
     
     init(header: UInt32, payload: Data) {

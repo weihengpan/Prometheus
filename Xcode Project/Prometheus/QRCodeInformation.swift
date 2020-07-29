@@ -65,9 +65,7 @@ final class QRCodeInformation {
     
     static func dataCapacity(forVersion version: Int, errorCorrectionLevel: CorrectionLevel) -> Int? {
                 
-        guard version >= 1 && version <= 40 else { return nil
-            
-        }
+        guard version >= 1 && version <= 40 else { return nil }
         let versionIndex = version - 1
         var errorCorrectionIndex: Int
         switch errorCorrectionLevel {
@@ -82,6 +80,13 @@ final class QRCodeInformation {
         }
         
         return dataCapacities[versionIndex][errorCorrectionIndex]
+    }
+ 
+    static func sideLengthInModules(forVersion version: Int) -> Int? {
+        
+        guard version >= 1 && version <= 40 else { return nil }
+        
+        return 4 * version + 17
     }
     
 }
