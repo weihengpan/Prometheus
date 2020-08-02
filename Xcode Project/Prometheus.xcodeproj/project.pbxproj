@@ -518,7 +518,7 @@
 				CURRENT_PROJECT_VERSION = 400;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -539,7 +539,7 @@
 				CURRENT_PROJECT_VERSION = 400;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
