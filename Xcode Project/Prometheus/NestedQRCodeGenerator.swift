@@ -9,7 +9,9 @@
 import CoreImage
 
 class NestedQRCodeGenerator {
-            
+    
+    typealias ErrorCorrectionLevel = QRCodeInformation.ErrorCorrectionLevel
+    
     private let filter = CIFilter(name: "CIQRCodeGenerator")!
     private let ciContext = CIContext()
     
@@ -92,7 +94,7 @@ class NestedQRCodeGenerator {
     }
     
     func generateQRCode(forMetadataPacket packet: MetadataPacket, sideLength outputSideLength: CGFloat) -> CIImage {
-        let correctionLevel: QRCodeInformation.CorrectionLevel = .medium
+        let correctionLevel: ErrorCorrectionLevel = .medium
         let packetData = packet.archive()
         let image = generateUnitSizedQRCode(forData: packetData, correctionLevel: correctionLevel)
         
@@ -105,7 +107,7 @@ class NestedQRCodeGenerator {
         return CIImage(cgImage: renderedImage)
     }
     
-    func generateQRCodes(forData data: Data, correctionLevel: QRCodeInformation.CorrectionLevel = .low, sideLength outputSideLength: CGFloat, maxPacketSize: Int) -> [CIImage] {
+    func generateQRCodes(forData data: Data, correctionLevel: ErrorCorrectionLevel = .low, sideLength outputSideLength: CGFloat, maxPacketSize: Int) -> [CIImage] {
         let codeImages = generateUnitSizedQRCodes(forData: data, correctionLevel: correctionLevel, maxPacketSize: maxPacketSize)
         var scaledCodeImages: [CIImage] = []
         for image in codeImages {
@@ -118,7 +120,7 @@ class NestedQRCodeGenerator {
         return scaledCodeImages
     }
     
-    func generateUnitSizedQRCodes(forData data: Data, correctionLevel: QRCodeInformation.CorrectionLevel, maxPacketSize: Int) -> [CIImage] {
+    func generateUnitSizedQRCodes(forData data: Data, correctionLevel: ErrorCorrectionLevel, maxPacketSize: Int) -> [CIImage] {
         
         let unusableWidth = DataPacket.sizeExceptPayload
         let maxPayloadSize = maxPacketSize - unusableWidth
@@ -153,7 +155,7 @@ class NestedQRCodeGenerator {
     ///   - data: Binary data to encode in the QR code.
     ///   - correctionLevel: Correction level of the QR code.
     /// - Returns: A QR code in the form of an CIImage, where the each block is one pixel wide.
-    private func generateUnitSizedQRCode(forData data: Data, correctionLevel: QRCodeInformation.CorrectionLevel) -> CIImage {
+    private func generateUnitSizedQRCode(forData data: Data, correctionLevel: ErrorCorrectionLevel) -> CIImage {
         filter.setValue(data, forKey: "inputMessage")
         filter.setValue(correctionLevel.rawValue, forKey: "inputCorrectionLevel")
         guard let outputImage = filter.outputImage else {

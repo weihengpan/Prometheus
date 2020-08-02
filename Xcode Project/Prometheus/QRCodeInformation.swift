@@ -10,11 +10,24 @@ import Foundation
 
 final class QRCodeInformation {
     
-    enum CorrectionLevel: String {
+    enum ErrorCorrectionLevel: String, CaseIterable {
         case low = "L"
         case medium = "M"
         case quartile = "Q"
         case high = "H"
+        
+        var fullName: String {
+            switch self {
+            case .low:
+                return "Low"
+            case .medium:
+                return "Medium"
+            case .quartile:
+                return "Quartile"
+            case .high:
+                return "High"
+            }
+        }
     }
     
     static let dataCapacities: [[Int]] = [
@@ -63,7 +76,7 @@ final class QRCodeInformation {
         [2953, 2331, 1663, 1273]
     ]
     
-    static func dataCapacity(forVersion version: Int, errorCorrectionLevel: CorrectionLevel) -> Int? {
+    static func dataCapacity(forVersion version: Int, errorCorrectionLevel: ErrorCorrectionLevel) -> Int? {
                 
         guard version >= 1 && version <= 40 else { return nil }
         let versionIndex = version - 1

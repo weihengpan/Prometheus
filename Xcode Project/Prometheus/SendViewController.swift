@@ -11,8 +11,8 @@ import Combine
 
 final class SendViewController: UIViewController {
     
-    private enum SendMode {
-        case single
+    enum SendMode: Int, CaseIterable {
+        case single = 0
         case alternatingSingle
         case nested
     }
@@ -49,6 +49,7 @@ final class SendViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        self.title = "Send"
     } 
     
     private var generated = false
@@ -75,12 +76,14 @@ final class SendViewController: UIViewController {
     
     // MARK: - Methods
     
-    private var maxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
-    private var largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 18, errorCorrectionLevel: .quartile)!
-    private var smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
-    private let sendFrameRate = 15.0
-    private var sendMode: SendMode = .nested
-    private var frameIndex = 0
+    /// For single code mode only.
+    var sendMode: SendMode = .nested
+    var sendFrameRate = 15.0
+    var codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
+    var largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 18, errorCorrectionLevel: .quartile)!
+    var smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
+    private(set) var currentFrameIndex = 0
+    
     private func startDisplayingDataQRCodeImages() {
         
         guard var codeImagesIterator = dataCodeImages?.makeIterator() else { return }
@@ -93,7 +96,7 @@ final class SendViewController: UIViewController {
                 case .single, .nested:
                     self.singleRenderView.image = nextImage
                 case .alternatingSingle:
-                    if self.frameIndex % 2 == 0 {
+                    if self.currentFrameIndex % 2 == 0 {
                         self.topRenderView.image = nextImage
                         self.bottomRenderView.image = nil
                     } else {
@@ -102,7 +105,7 @@ final class SendViewController: UIViewController {
                     }
                 }
                 
-                self.frameIndex += 1
+                self.currentFrameIndex += 1
         }
         startButton.setTitle("Reset", for: .normal)
     }
@@ -119,7 +122,7 @@ final class SendViewController: UIViewController {
             bottomRenderView.image = metadataCodeImage
         }
             
-        frameIndex = 0
+        currentFrameIndex = 0
         startButton.setTitle("Start", for: .normal)
     }
     
@@ -140,7 +143,7 @@ final class SendViewController: UIViewController {
         var frameCount: Int
         switch sendMode {
         case .single, .alternatingSingle:
-            dataCodeImages = codeGenerator.generateQRCodes(forData: messageData, correctionLevel: .low, sideLength: sideLength, maxPacketSize: self.maxPacketSize)
+            dataCodeImages = codeGenerator.generateQRCodes(forData: messageData, correctionLevel: .low, sideLength: sideLength, maxPacketSize: self.codeMaxPacketSize)
             frameCount = dataCodeImages!.count
         case .nested:
             (dataCodeImages, frameCount) = codeGenerator.generateNestedQRCodes(forData: messageData, largerCodeMaxPacketSize: largerCodeMaxPacketSize, smallerCodeMaxPacketSize: smallerCodeMaxPacketSize, smallerCodeSideLengthRatio: 0.4, sideLength: sideLength)
