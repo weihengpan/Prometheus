@@ -8,25 +8,18 @@
 
 import UIKit
 
-class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPickerViewDelegate {
+class SendSettingsViewController: UITableViewController, UIPickerViewDataSource, UIPickerViewDelegate {
     
     typealias SendMode = SendViewController.SendMode
     typealias ErrorCorrectionLevel = QRCodeInformation.ErrorCorrectionLevel
     
     // MARK: - IB Outlets
     
+    @IBOutlet weak var sendModeLabel: UILabel!
     @IBOutlet weak var sendModePickerView: UIPickerView!
     
     @IBOutlet weak var frameRateLabel: UILabel!
     @IBOutlet weak var frameRateStepper: UIStepper!
-    
-    @IBOutlet weak var codeSettingsContentStackView: UIStackView!
-    @IBOutlet weak var codeVersionStackView: UIStackView!
-    @IBOutlet weak var codeECLStackView: UIStackView!
-    @IBOutlet weak var largerCodeVersionStackView: UIStackView!
-    @IBOutlet weak var largerCodeECLStackView: UIStackView!
-    @IBOutlet weak var smallerCodeVersionStackView: UIStackView!
-    @IBOutlet weak var smallerCodeECLStackView: UIStackView!
     
     @IBOutlet weak var codeVersionLabel: UILabel!
     @IBOutlet weak var codeECLLabel: UILabel!
@@ -46,11 +39,16 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+                
         sendModePickerView.dataSource = self
         sendModePickerView.delegate = self
         
-        setupPickerView()
+        self.title = "Send Settings"
+        
+        dynamicCellLabels = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel]
+        dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellLabels.count))
+        
+        setupSendModeLabelAndPickerView()
         setupFrameRateStepper()
         setupVersionStepper(codeVersionStepper)
         setupVersionStepper(largerCodeVersionStepper)
@@ -58,8 +56,6 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
         setupECLStepper(codeECLStepper)
         setupECLStepper(largerCodeECLStepper)
         setupECLStepper(smallerCodeECLStepper)
-        
-        self.title = "Send Settings"
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -74,6 +70,22 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
     }
     
     // MARK: - UI Management
+        
+    private func setupSendModeLabelAndPickerView() {
+        
+        // Set label text
+        let sendMode = UserData.sendMode
+        sendModeLabel.text = sendMode.readableName
+        
+        // Hide picker
+        sendModePickerView.isHidden = true
+        
+        // Select row
+        guard let row = SendMode.allCases.firstIndex(of: sendMode) else { return }
+        sendModePickerView.selectRow(row, inComponent: 0, animated: false)
+        pickerView(sendModePickerView, didSelectRow: row, inComponent: 0)
+        
+    }
     
     private func setupFrameRateStepper() {
         
@@ -128,14 +140,18 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
         eclStepperValueChanged(stepper)
     }
     
-    private func setupPickerView() {
+    private func changeSendModePickerVisibility(to isVisible: Bool) {
         
-        let sendMode = UserData.sendMode
-        guard let row = SendMode.allCases.firstIndex(of: sendMode) else { return }
-        sendModePickerView.selectRow(row, inComponent: 0, animated: false)
-        pickerView(sendModePickerView, didSelectRow: row, inComponent: 0)
-                
+        self.sendModePickerView.isHidden = !isVisible
+        UIView.animate(withDuration: 0.3) {
+            // Trigger table view update
+            self.tableView.beginUpdates()
+            self.tableView.endUpdates()
+        }
+        
     }
+    
+    // MARK: - Actions
     
     @objc private func frameRateStepperValueChanged(_ sender: UIStepper) {
         
@@ -189,6 +205,38 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
         
     }
     
+    // MARK: - Table View Delegate Methods
+    
+    override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        
+        // Default height of cell as in Interface Builder
+        let defaultHeight = super.tableView(tableView, heightForRowAt: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        
+        if sendModePickerView.isDescendant(of: cell) {
+            return sendModePickerView.isHidden ? 0 : defaultHeight
+        }
+        
+        if let label = dynamicCellLabels.first(where: { $0.isDescendant(of: cell) }) {
+            let index = dynamicCellLabels.firstIndex(of: label)!
+            let isVisible = dynamicCellsVisibilities[index]
+            cell.isHidden = !isVisible
+            return isVisible ? defaultHeight : 0
+        }
+        
+        return defaultHeight
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        if sendModeLabel.isDescendant(of: cell) {
+            changeSendModePickerVisibility(to: sendModePickerView.isHidden)
+            tableView.deselectRow(at: indexPath, animated: true)
+        }
+        
+    }
+    
     // MARK: - Picker View Data Source Methods
     
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
@@ -200,49 +248,40 @@ class SendSettingsViewController: UIViewController, UIPickerViewDataSource, UIPi
     }
     
     // MARK: - Picker View Delegate Methods
-    
+        
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
         
         let sendMode = SendMode.allCases[row]
-        switch sendMode {
-        case .single:
-            return "Single QR Code"
-        case .alternatingSingle:
-            return "Alternating Single QR Code"
-        case .nested:
-            return "Nested QR Code"
-        }
+        return sendMode.readableName
     }
+    
+    private var dynamicCellLabels = [UILabel]()
+    private var dynamicCellsVisibilities = [Bool]()
     
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         
-        // Update visible settings
+        // Update label
         let sendMode = SendMode.allCases[row]
-        var visibleStackViews: Set<UIView> = []
-        switch sendMode {
-        case .single, .alternatingSingle:
-            visibleStackViews = [codeVersionStackView, codeECLStackView]
-        case .nested:
-            visibleStackViews = [largerCodeVersionStackView, largerCodeECLStackView, smallerCodeVersionStackView, smallerCodeECLStackView]
-        }
-        
-        let allStackViews = Set<UIView>(codeSettingsContentStackView.subviews)
-        let invisibleStackViews = allStackViews.subtracting(visibleStackViews)
-        
-        for view in visibleStackViews {
-            if codeSettingsContentStackView.arrangedSubviews.contains(view) == false {
-                view.isHidden = false
-                codeSettingsContentStackView.addArrangedSubview(view)
-            }
-        }
-        for view in invisibleStackViews {
-            if codeSettingsContentStackView.subviews.contains(view) {
-                codeSettingsContentStackView.removeArrangedSubview(view)
-                view.isHidden = true
-            }
-        }
-        
+        sendModeLabel.text = sendMode.readableName
+
         // Persist value
         UserData.sendMode = sendMode
+        
+        // Update cells' visibilities
+        var labelsToShow: [UILabel]
+        switch sendMode {
+        case .single, .alternatingSingle:
+            labelsToShow = [codeVersionLabel, codeECLLabel]
+        case .nested:
+            labelsToShow = [largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel]
+        }
+                
+        guard dynamicCellsVisibilities.count > 0 else { return }
+        for (index, label) in dynamicCellLabels.enumerated() {
+            dynamicCellsVisibilities[index] = labelsToShow.contains(label)
+        }
+        
+        tableView.beginUpdates()
+        tableView.endUpdates()
     }
 }

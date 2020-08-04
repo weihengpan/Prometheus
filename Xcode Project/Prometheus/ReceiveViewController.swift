@@ -9,11 +9,16 @@
 import UIKit
 import AVFoundation
 
-final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureFileOutputRecordingDelegate {
     
     enum ReceiveMode {
         case singleCamera
         case dualCamera
+    }
+    
+    enum DecodeMode {
+        case liveDecode
+        case recordAndDecode
     }
     
     // MARK: - IB Outlets, IB Actions and Related
@@ -23,20 +28,56 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     @IBOutlet weak var previewStackView: UIStackView!
     @IBOutlet weak var startButton: UIButton!
     
-    @IBAction func startButtonDidTouchUpInside(_ sender: Any) {
+    @IBAction func startButtonDidTouchUpInside(_ sender: UIButton) {
+        
+        if decodeMode == .liveDecode {
+            
+            if startButton.currentTitle ?? "" == "Stop" {
+                
+                // Ending data transmission
+                isReceivingMetadata = true
+                isReceivingData = false
+                
+            } else {
+                
+                // Starting data transmission
+                receivedDataPackets = []
+                receivedFrameIndices = []
+                isReceivingMetadata = false
+                isReceivingData = true
+            }
+            
+        } else if decodeMode == .recordAndDecode {
+            
+            if movieFileOutput.isRecording == true {
+                
+                // Start recording
+                
+                
+                let url = generateMovieFileURL()
+                movieFileOutput.startRecording(to: url, recordingDelegate: self)
+                
+                movieFileURLs = []
+                movieFileURLs.append(url)
+                
+            } else {
+            
+                // Stop recording
+                movieFileOutput.stopRecording()
+                
+            }
+        }
+        
+        // Update UI
         if startButton.currentTitle ?? "" == "Stop" {
-            // Ending data transmission
-            isReceivingMetadata = true
-            isReceivingData = false
+            
             startButton.setTitle("Start", for: .normal)
             startButton.isEnabled = false
+            
         } else {
-            // Starting data transmission
-            receivedDataPackets = []
-            receivedFrameIndices = []
-            isReceivingMetadata = false
-            isReceivingData = true
+            
             startButton.setTitle("Stop", for: .normal)
+
         }
     }
     
@@ -52,6 +93,19 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             break
         }
         
+    }
+    
+    @IBOutlet weak var decodeModeSegmentedControl: UISegmentedControl!
+    @IBAction func decodeModeSegmentedControlIndexChanged(_ sender: UISegmentedControl) {
+        
+        switch sender.selectedSegmentIndex {
+        case 0:
+            decodeMode = .liveDecode
+        case 1:
+            decodeMode = .recordAndDecode
+        default:
+            break
+        }
     }
     
     private weak var widePreviewLayer: AVCaptureVideoPreviewLayer!
@@ -119,6 +173,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     // MARK: - Video Processing
     
     private let ciContext = CIContext(options: [.useSoftwareRenderer : false])
+    
     private var _detector: CIDetector!
     private var detector: CIDetector {
         if _detector == nil {
@@ -152,12 +207,15 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
         }
     }
+    private var decodeMode: DecodeMode = .liveDecode
     private var frameNumber = 1
     private var isReceivingData = false
     private var isReceivingMetadata = true
     private var totalCountOfFrames = 0
     private var receivedFrameIndices = Set<UInt32>()
     private var receivedDataPackets = [DataPacket]()
+    private var movieFileURLs = [URL]()
+    
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         
         // Detect QR codes
@@ -211,6 +269,12 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         print("[SampleBufferDelegate] Warning: frame loss, reason: \(reason)")
     }
+    
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        
+    }
+    
+    // MARK: - Code Detection
     
     func debugPrintQRCode(sampleBuffer: CMSampleBuffer, caption: String) {
         guard let imageBuffer = sampleBuffer.imageBuffer else { return }
@@ -320,6 +384,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private let dualCameraWideVideoDataOutput = AVCaptureVideoDataOutput()
     private let dualCameraTelephotoVideoDataOutput = AVCaptureVideoDataOutput()
     private let wideCameraVideoDataOutput = AVCaptureVideoDataOutput()
+    private let movieFileOutput = AVCaptureMovieFileOutput()
     private var dataOutputSynchronizer: AVCaptureDataOutputSynchronizer!
     
     private func configureSessionDuringSetup() {
@@ -489,13 +554,18 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             setVideoFormat(ofDevice: wideCamera, width: 1280, height: 720, fps: 60.0, isBinned: false)
             session.addInput(wideCameraDeviceInput)
             
-            // Add device output
+            // Add outputs
             guard session.canAddOutput(wideCameraVideoDataOutput) else {
                 print("[Session Configuration] Could not add wide camera video data output.")
                 setupResult = .configurationFailed
                 return
             }
             session.addOutput(wideCameraVideoDataOutput)
+            guard session.canAddOutput(movieFileOutput) else {
+                print("[Session Configuration] Could not add movie file output.")
+                setupResult = .configurationFailed
+                return
+            }
             wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
             wideCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
             wideCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
@@ -558,6 +628,14 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             print("\(dimensions.width)x\(dimensions.height) @ \(maxFrameRate) fps, \(binnedString)")
             print()
         }
+    }
+    
+    private func generateMovieFileURL() -> URL {
+        let fileName = NSUUID().uuidString as NSString
+        let fileDirectory = NSTemporaryDirectory() as NSString
+        let fileExtension = "mov"
+        let filePath = fileDirectory.appendingPathComponent(fileName.appendingPathExtension(fileExtension)!)
+        return URL(fileURLWithPath: filePath)
     }
 }
 

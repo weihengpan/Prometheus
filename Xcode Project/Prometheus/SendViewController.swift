@@ -15,6 +15,17 @@ final class SendViewController: UIViewController {
         case single = 0
         case alternatingSingle
         case nested
+        
+        var readableName: String {
+            switch self {
+            case .single:
+                return "Single QR Code"
+            case .alternatingSingle:
+                return "Alternating Single QR Code"
+            case .nested:
+                return "Nested QR Code"
+            }
+        }
     }
     
     // MARK: - IB Outlets, IB Actions and Related
