@@ -21,31 +21,52 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case recordAndDecode
     }
     
+    private enum ReceiveState {
+        case waitingForMetadata
+        case metadataReceivedAndWaitingForStart
+        case receivingData
+    }
+    
     // MARK: - IB Outlets, IB Actions and Related
+    
+    @IBOutlet weak var mainStackView: UIStackView!
     
     @IBOutlet weak var previewStackView: UIStackView!
     @IBOutlet weak var widePreviewView: PreviewView!
     @IBOutlet weak var telephotoPreviewView: PreviewView!
     
-    @IBOutlet weak var startButton: UIButton!
+    @IBOutlet weak var metadataLabel: UILabel!
+    @IBOutlet weak var progressView: UIProgressView!
     
+    @IBOutlet weak var startButton: UIButton!
+        
     @IBAction func startButtonDidTouchUpInside(_ sender: UIButton) {
         
+        let titles: [ReceiveState : String] = [
+            .waitingForMetadata : "Start",
+            .metadataReceivedAndWaitingForStart : "Start",
+            .receivingData : "Stop"
+        ]
+        let enabledStates: [ReceiveState : Bool] = [
+            .waitingForMetadata : false,
+            .metadataReceivedAndWaitingForStart : true,
+            .receivingData : true
+        ]
+        
+        // Update state variables
         if decodeMode == .liveDecode {
             
-            if startButton.currentTitle ?? "" == "Stop" {
+            if receiveState == .receivingData {
                 
                 // Ending data transmission
-                isReceivingMetadata = true
-                isReceivingData = false
+                receiveState = .waitingForMetadata
                 
-            } else {
+            } else if receiveState == .metadataReceivedAndWaitingForStart {
                 
                 // Starting data transmission
                 receivedDataPackets = []
                 receivedFrameIndices = []
-                isReceivingMetadata = false
-                isReceivingData = true
+                receiveState = .receivingData
             }
             
         } else if decodeMode == .recordAndDecode {
@@ -70,20 +91,49 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
         
         // Update UI
-        if startButton.currentTitle ?? "" == "Stop" {
+        startButton.setTitle(titles[receiveState], for: .normal)
+        startButton.isEnabled = enabledStates[receiveState]!
+        if receiveState == .receivingData {
             
-            startButton.setTitle("Start", for: .normal)
-            startButton.isEnabled = false
-            
-        } else {
-            
-            startButton.setTitle("Stop", for: .normal)
+            showProgressViewAndHideMetadataLabel()
 
+            
+        } else if receiveState == .waitingForMetadata {
+            
+            showMetadataLabelAndHideProgressView()
+            
         }
+        
     }
     
     private weak var widePreviewLayer: AVCaptureVideoPreviewLayer!
     private weak var telephotoPreviewLayer: AVCaptureVideoPreviewLayer!
+    
+    // MARK: - UI Management
+    
+    private func showProgressViewAndHideMetadataLabel() {
+        
+        progressView.isHidden = false
+        progressView.progress = 0
+        let index = mainStackView.arrangedSubviews.firstIndex(of: metadataLabel)!
+        mainStackView.insertArrangedSubview(progressView, at: index)
+        
+        mainStackView.removeArrangedSubview(metadataLabel)
+        metadataLabel.isHidden = true
+        
+    }
+    
+    private func showMetadataLabelAndHideProgressView() {
+        
+        metadataLabel.isHidden = false
+        metadataLabel.text = ""
+        let index = mainStackView.arrangedSubviews.firstIndex(of: progressView)!
+        mainStackView.insertArrangedSubview(metadataLabel, at: index)
+        
+        mainStackView.removeArrangedSubview(progressView)
+        progressView.isHidden = true
+        
+    }
     
     // MARK: - View Controller Lifecycle
     
@@ -111,6 +161,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         // Disable start button
         startButton.isEnabled = false
+        
+        // Hide progress view
+        mainStackView.removeArrangedSubview(progressView)
+        progressView.isHidden = true
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -170,9 +224,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     var receiveMode: ReceiveMode = .dualCamera
     var decodeMode: DecodeMode = .liveDecode
-    private var frameNumber = 1
-    private var isReceivingData = false
-    private var isReceivingMetadata = true
+    private var frameNumber = 0
+    private var receiveState: ReceiveState = .waitingForMetadata
     private var totalCountOfFrames = 0
     private var receivedFrameIndices = Set<UInt32>()
     private var receivedDataPackets = [DataPacket]()
@@ -251,16 +304,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     func detectCodes(imageBuffer: CVImageBuffer, debugCaption: String) {
         
-        /*let copiedImageBuffer = imageBuffer.copy()
-        if isReceivingMetadata {
-            detectAndReceiveMetadataPackets(imageBuffer: copiedImageBuffer)
-        } else if isReceivingData {
-            detectAndReceiveDataPackets(imageBuffer: copiedImageBuffer, caption: debugCaption)
-        }*/
-        
-        if isReceivingMetadata {
+        if receiveState == .waitingForMetadata {
             detectAndReceiveMetadataPackets(imageBuffer: imageBuffer)
-        } else if isReceivingData {
+        } else if receiveState == .receivingData {
             detectAndReceiveDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
         }
     }
@@ -279,10 +325,12 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             totalCountOfFrames = Int(packet.numberOfFrames)
             print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName)")
+            DispatchQueue.main.async {
+                self.metadataLabel.text = "No. of frames: \(packet.numberOfFrames)\nFile size: \(packet.fileSize)\nFile name: \(fileName)"
+            }
             
             // Update variables
-            isReceivingMetadata = false
-            isReceivingData = false
+            receiveState = .metadataReceivedAndWaitingForStart
             DispatchQueue.main.async {
                 self.startButton.isEnabled = true
             }
@@ -300,7 +348,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             guard receivedFrameIndices.contains(frameIndex) == false else { continue }
             receivedFrameIndices.insert(frameIndex)
             receivedDataPackets.append(packet)
-            print("[ReceiveVC] \(caption): Frame \(frameIndex) (\(packet.payload.count) bytes) received, \(receivedDataPackets.count) frames received in total")
+            let receivedDataPacketsCount = receivedDataPackets.count
+            DispatchQueue.main.async {
+                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
+            }
+            print("[ReceiveVC] \(caption): Frame \(frameIndex) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
                         
             if receivedDataPackets.count == totalCountOfFrames {
                 receivedDataPackets.sort(by: { $0.frameIndex < $1.frameIndex })

@@ -15,8 +15,8 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="60" translatesAutoresizingMaskIntoConstraints="NO" id="1wA-nK-d2d">
-                                <rect key="frame" x="20" y="248.33333333333334" width="374" height="404.66666666666663"/>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="1wA-nK-d2d">
+                                <rect key="frame" x="20" y="247.33333333333334" width="374" height="406.33333333333326"/>
                                 <subviews>
                                     <stackView opaque="NO" contentMode="scaleToFill" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="wA3-Fx-ua1">
                                         <rect key="frame" x="0.0" y="0.0" width="374" height="314.66666666666669"/>
@@ -37,8 +37,20 @@
                                             </view>
                                         </subviews>
                                     </stackView>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Akr-CX-5FZ">
+                                        <rect key="frame" x="0.0" y="334.66666666666663" width="374" height="0.0"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" relation="greaterThanOrEqual" id="EwA-kf-223"/>
+                                        </constraints>
+                                        <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                        <nil key="textColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+                                    <progressView opaque="NO" contentMode="scaleToFill" verticalHuggingPriority="750" progressViewStyle="bar" translatesAutoresizingMaskIntoConstraints="NO" id="VHX-CE-qM8">
+                                        <rect key="frame" x="0.0" y="354.66666666666663" width="374" height="2.6666666666666856"/>
+                                    </progressView>
                                     <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="NJ0-So-Tby">
-                                        <rect key="frame" x="170" y="374.66666666666663" width="34" height="30"/>
+                                        <rect key="frame" x="170" y="376.33333333333326" width="34" height="30"/>
                                         <state key="normal" title="Start"/>
                                         <connections>
                                             <action selector="startButtonDidTouchUpInside:" destination="9pv-A4-QxB" eventType="touchUpInside" id="8fg-mQ-jJB"/>
@@ -46,6 +58,9 @@
                                     </button>
                                 </subviews>
                                 <constraints>
+                                    <constraint firstAttribute="trailing" secondItem="VHX-CE-qM8" secondAttribute="trailing" id="5xO-sH-IUz"/>
+                                    <constraint firstItem="VHX-CE-qM8" firstAttribute="leading" secondItem="1wA-nK-d2d" secondAttribute="leading" id="C6p-bp-KnW"/>
+                                    <constraint firstItem="Akr-CX-5FZ" firstAttribute="width" secondItem="wA3-Fx-ua1" secondAttribute="width" id="umZ-HO-U1c"/>
                                     <constraint firstItem="wA3-Fx-ua1" firstAttribute="width" secondItem="1wA-nK-d2d" secondAttribute="width" priority="999" id="wzB-4z-bSk"/>
                                 </constraints>
                             </stackView>
@@ -63,7 +78,10 @@
                     <tabBarItem key="tabBarItem" title="Receive" image="square.and.arrow.down" catalog="system" id="acW-dT-cKf"/>
                     <navigationItem key="navigationItem" id="HdO-Le-qFi"/>
                     <connections>
+                        <outlet property="mainStackView" destination="1wA-nK-d2d" id="HSw-OC-CeF"/>
+                        <outlet property="metadataLabel" destination="Akr-CX-5FZ" id="Ojf-jy-aUE"/>
                         <outlet property="previewStackView" destination="wA3-Fx-ua1" id="SsX-P3-4L5"/>
+                        <outlet property="progressView" destination="VHX-CE-qM8" id="wC5-IO-uC3"/>
                         <outlet property="startButton" destination="NJ0-So-Tby" id="BdT-uS-RYc"/>
                         <outlet property="telephotoPreviewView" destination="DjX-cg-GIn" id="gLZ-EB-F5m"/>
                         <outlet property="widePreviewView" destination="hEu-q4-d2Y" id="eB0-Ca-mkB"/>
