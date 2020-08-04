@@ -23,6 +23,8 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     
     @IBOutlet weak var decodeModeSegmentedControl: UISegmentedControl!
     
+    @IBOutlet weak var startButton: UIButton!
+    
     // MARK: - View Controller Lifecycle & Segues
     
     private var availableVideoFormats: [AVCaptureDevice.Format]!
@@ -182,10 +184,16 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        
         if videoFormatLabel.isDescendant(of: cell) {
             changeVideoFormatPickerViewVisibility(to: videoFormatPickerView.isHidden)
-            tableView.deselectRow(at: indexPath, animated: true)
         }
+    
+        if startButton.isDescendant(of: cell) {
+            performSegue(withIdentifier: "showReceiveViewController", sender: nil)
+        }
+        
+        tableView.deselectRow(at: indexPath, animated: true)
     }
     
     // MARK: - Picker View Data Source Methods

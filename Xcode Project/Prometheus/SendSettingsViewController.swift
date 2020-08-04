@@ -35,6 +35,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @IBOutlet weak var smallerCodeVersionStepper: UIStepper!
     @IBOutlet weak var smallerCodeECLStepper: UIStepper!
     
+    @IBOutlet weak var startButton: UIButton!
+    
     // MARK: - View Controller Lifecycle & Segues
     
     override func viewDidLoad() {
@@ -230,11 +232,16 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        
         if sendModeLabel.isDescendant(of: cell) {
             changeSendModePickerViewVisibility(to: sendModePickerView.isHidden)
-            tableView.deselectRow(at: indexPath, animated: true)
         }
         
+        if startButton.isDescendant(of: cell) {
+            performSegue(withIdentifier: "showSendViewController", sender: nil)
+        }
+
+        tableView.deselectRow(at: indexPath, animated: true)
     }
     
     // MARK: - Picker View Data Source Methods
