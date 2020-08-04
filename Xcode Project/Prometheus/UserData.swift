@@ -12,7 +12,18 @@ final class UserData {
     
     static let defaults = UserDefaults.standard
     
-    // MARK: - Static Properties
+    // MARK: - Receive Settings
+    
+    @UserDefaultEnum(key: "receiveMode", defaultValue: .singleCamera)
+    static var receiveMode: ReceiveViewController.ReceiveMode
+    
+    @UserDefault(key: "videoFormatPickerViewSelectedRow", defaultValue: 0)
+    static var videoFormatPickerViewSelectedRow: Int
+    
+    @UserDefaultEnum(key: "decodeMode", defaultValue: .liveDecode)
+    static var decodeMode: ReceiveViewController.DecodeMode
+    
+    // MARK: - Send Settings
     
     @UserDefaultEnum(key: "sendMode", defaultValue: .single)
     static var sendMode: SendViewController.SendMode

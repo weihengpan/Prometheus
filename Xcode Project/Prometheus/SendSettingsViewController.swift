@@ -43,7 +43,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         sendModePickerView.dataSource = self
         sendModePickerView.delegate = self
         
-        self.title = "Send Settings"
+        self.title = "Send"
         
         dynamicCellLabels = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel]
         dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellLabels.count))
@@ -140,7 +140,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         eclStepperValueChanged(stepper)
     }
     
-    private func changeSendModePickerVisibility(to isVisible: Bool) {
+    private func changeSendModePickerViewVisibility(to isVisible: Bool) {
         
         self.sendModePickerView.isHidden = !isVisible
         UIView.animate(withDuration: 0.3) {
@@ -231,7 +231,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         if sendModeLabel.isDescendant(of: cell) {
-            changeSendModePickerVisibility(to: sendModePickerView.isHidden)
+            changeSendModePickerViewVisibility(to: sendModePickerView.isHidden)
             tableView.deselectRow(at: indexPath, animated: true)
         }
         

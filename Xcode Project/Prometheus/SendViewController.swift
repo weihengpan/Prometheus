@@ -60,7 +60,10 @@ final class SendViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.title = "Send"
+        self.title = "Sending"
+        
+        // Disable timed auto-lock
+        UIApplication.shared.isIdleTimerDisabled = true
     } 
     
     private var generated = false

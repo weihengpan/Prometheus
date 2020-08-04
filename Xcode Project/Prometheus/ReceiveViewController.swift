@@ -11,21 +11,22 @@ import AVFoundation
 
 final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureFileOutputRecordingDelegate {
     
-    enum ReceiveMode {
+    enum ReceiveMode: String, CaseIterable {
         case singleCamera
         case dualCamera
     }
     
-    enum DecodeMode {
+    enum DecodeMode: String, CaseIterable {
         case liveDecode
         case recordAndDecode
     }
     
     // MARK: - IB Outlets, IB Actions and Related
     
+    @IBOutlet weak var previewStackView: UIStackView!
     @IBOutlet weak var widePreviewView: PreviewView!
     @IBOutlet weak var telephotoPreviewView: PreviewView!
-    @IBOutlet weak var previewStackView: UIStackView!
+    
     @IBOutlet weak var startButton: UIButton!
     
     @IBAction func startButtonDidTouchUpInside(_ sender: UIButton) {
@@ -81,33 +82,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    @IBOutlet weak var receiveModeSegmentedControl: UISegmentedControl!
-    @IBAction func receiveModeSegmentedControlIndexChanged(_ sender: UISegmentedControl) {
-        
-        switch sender.selectedSegmentIndex {
-        case 0:
-            receiveMode = .singleCamera
-        case 1:
-            receiveMode = .dualCamera
-        default:
-            break
-        }
-        
-    }
-    
-    @IBOutlet weak var decodeModeSegmentedControl: UISegmentedControl!
-    @IBAction func decodeModeSegmentedControlIndexChanged(_ sender: UISegmentedControl) {
-        
-        switch sender.selectedSegmentIndex {
-        case 0:
-            decodeMode = .liveDecode
-        case 1:
-            decodeMode = .recordAndDecode
-        default:
-            break
-        }
-    }
-    
     private weak var widePreviewLayer: AVCaptureVideoPreviewLayer!
     private weak var telephotoPreviewLayer: AVCaptureVideoPreviewLayer!
     
@@ -115,6 +89,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     override func viewDidLoad() {
         super.viewDidLoad()
+                
+        self.title = "Receiving"
         
         // Assign preview layer references on the main thread
         widePreviewLayer = widePreviewView.previewLayer
@@ -127,13 +103,19 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         // Disable timed auto-lock
         UIApplication.shared.isIdleTimerDisabled = true
         
+        // Configure preview views
+        if receiveMode == .singleCamera {
+            previewStackView.removeArrangedSubview(telephotoPreviewView)
+            telephotoPreviewView.removeFromSuperview()
+        }
+        
         // Disable start button
         startButton.isEnabled = false
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
+                
         sessionQueue.async {
             self.startSession()
         }
@@ -186,28 +168,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         return _detector
     }
     
-    private var receiveMode: ReceiveMode = .dualCamera {
-        didSet {
-            DispatchQueue.main.async {
-                UIView.animate(withDuration: 0.5) {
-                    switch self.receiveMode {
-                    case .singleCamera:
-                        self.previewStackView.removeArrangedSubview(self.telephotoPreviewView)
-                    case .dualCamera:
-                        self.previewStackView.addArrangedSubview(self.telephotoPreviewView)
-                    }
-                    // Animate layout change
-                    self.view.layoutIfNeeded()
-                }
-            }
-            
-            sessionQueue.async {
-                self.configureSession(forReceiveMode: self.receiveMode)
-                self.startSession()
-            }
-        }
-    }
-    private var decodeMode: DecodeMode = .liveDecode
+    var receiveMode: ReceiveMode = .dualCamera
+    var decodeMode: DecodeMode = .liveDecode
     private var frameNumber = 1
     private var isReceivingData = false
     private var isReceivingMetadata = true
@@ -371,6 +333,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case configurationFailed
     }
     
+    var videoFormat: AVCaptureDevice.Format?
     private let sessionQueue = DispatchQueue(label: "sessionQueue", qos: .userInitiated)
     private let dataOutputQueue = DispatchQueue(label: "dataOutputQueue")
     private var session: AVCaptureSession!
@@ -390,34 +353,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private func configureSessionDuringSetup() {
         guard case .success(_) = setupResult else { return }
         
-        guard AVCaptureMultiCamSession.isMultiCamSupported else {
-            print("[Session Configuration] MultiCam is not supported.")
-            return
-        }
-        
-        // Test if device supports MultiCam mode
-        let isMultiCamSupported = AVCaptureMultiCamSession.isMultiCamSupported
-            && AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back) != nil
-        if isMultiCamSupported {
-            
-            print("[Session Configuration] MultiCam is supported.")
-            
-            configureSession(forReceiveMode: .dualCamera)
-            
-        } else {
-            
-            print("[Session Configuration] MultiCam is not supported. Reverting to wide camera only mode.")
-            
-            // Change UI
-            DispatchQueue.main.async {
-                self.receiveModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
-                self.receiveModeSegmentedControl.selectedSegmentIndex = 0
-                self.receiveModeSegmentedControlIndexChanged(self.receiveModeSegmentedControl)
-            }
-            
-            configureSession(forReceiveMode: .singleCamera)
-        }
-        
+        configureSession(forReceiveMode: receiveMode)
     }
     
     private func configureSession(forReceiveMode receiveMode: ReceiveMode) {
@@ -450,7 +386,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 setupResult = .configurationFailed
                 return
             }
-            setVideoFormat(ofDevice: dualCamera, width: 1280, height: 720, fps: 60.0, isBinned: true, multiCamOnly: true)
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: dualCamera, to: videoFormat)
+            }
             session.addInputWithNoConnections(dualCameraDeviceInput)
             
             // Find ports of the constituent devices of the device input
@@ -551,7 +489,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 setupResult = .configurationFailed
                 return
             }
-            setVideoFormat(ofDevice: wideCamera, width: 1280, height: 720, fps: 60.0, isBinned: false)
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: wideCamera, to: videoFormat)
+            }
             session.addInput(wideCameraDeviceInput)
             
             // Add outputs
@@ -578,56 +518,21 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     // MARK: - Utilities
     
-    private func setVideoFormat(ofDevice device: AVCaptureDevice, width: Int, height: Int, fps: Double, isBinned: Bool, multiCamOnly: Bool = false) {
-                
-        let width = Int32(width)
-        let height = Int32(height)
-        let fps = Float64(fps)
+    private func setVideoFormat(of device: AVCaptureDevice, to format: AVCaptureDevice.Format) {
         
-        var formatFound = false
+        guard device.formats.contains(format) else {
+            print("[ReceiveVC] Failed to set device format becuase the device does not support the format.")
+            return
+        }
         
         do {
             try device.lockForConfiguration()
-            
-            for format in device.formats {
-                let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-                let isVideoBinned = format.isVideoBinned
-                
-                var isMatching = dimensions.width == width && dimensions.height == height && maxFrameRate == fps && isVideoBinned == isBinned
-                if multiCamOnly {
-                    isMatching = isMatching && format.isMultiCamSupported
-                }
-                
-                if isMatching {
-                    device.activeFormat = format
-                    formatFound = true
-                    break
-                }
-            }
-            
+            device.activeFormat = format
             device.unlockForConfiguration()
         } catch let error {
             print("[ReceiveVC] Could not lock device \(device.localizedName) for changing format, reason: \(error)")
         }
         
-        if formatFound == false {
-            print("[ReceiveVC] Warning: format \(width)x\(height)@\(fps), binned: \(isBinned), multiCamOnly: \(multiCamOnly), was not found for device \(device.localizedName)")
-        }
-    }
-        
-    private func printAvailableMultiCamFormats() {
-        guard let input = dualCameraDeviceInput else { return }
-        print("------ Available MultiCam formats ------")
-        let formats = input.device.formats
-        for format in formats {
-            guard format.isMultiCamSupported else { continue }
-            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-            let binnedString = format.isVideoBinned ? "binned" : "not binned"
-            print("\(dimensions.width)x\(dimensions.height) @ \(maxFrameRate) fps, \(binnedString)")
-            print()
-        }
     }
     
     private func generateMovieFileURL() -> URL {
@@ -636,35 +541,5 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         let fileExtension = "mov"
         let filePath = fileDirectory.appendingPathComponent(fileName.appendingPathExtension(fileExtension)!)
         return URL(fileURLWithPath: filePath)
-    }
-}
-
-extension CVPixelBuffer {
-    func copy() -> CVPixelBuffer {
-        precondition(CFGetTypeID(self) == CVPixelBufferGetTypeID(), "copy() cannot be called on a non-CVPixelBuffer")
-        
-        var _copy : CVPixelBuffer?
-        CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            CVPixelBufferGetWidth(self),
-            CVPixelBufferGetHeight(self),
-            CVPixelBufferGetPixelFormatType(self),
-            nil,
-            &_copy)
-        
-        guard let copy = _copy else { fatalError() }
-        
-        CVPixelBufferLockBaseAddress(self, CVPixelBufferLockFlags.readOnly)
-        CVPixelBufferLockBaseAddress(copy, CVPixelBufferLockFlags(rawValue: 0))
-        
-        let copyBaseAddress = CVPixelBufferGetBaseAddress(copy)
-        let currBaseAddress = CVPixelBufferGetBaseAddress(self)
-        
-        memcpy(copyBaseAddress, currBaseAddress, CVPixelBufferGetDataSize(copy))
-        
-        CVPixelBufferUnlockBaseAddress(copy, CVPixelBufferLockFlags(rawValue: 0))
-        CVPixelBufferUnlockBaseAddress(self, CVPixelBufferLockFlags.readOnly)
-        
-        return copy
     }
 }
