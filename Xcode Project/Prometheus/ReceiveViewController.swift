@@ -25,6 +25,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case waitingForMetadata
         case metadataReceivedAndWaitingForStart
         case receivingData
+        
+        case waitingForRecordingVideo
         case recordingVideo
         case decodingRecordedVideo
         case finishedDecoding
@@ -56,8 +58,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         progressView.isHidden = false
         progressView.progress = 0
-        let index = mainStackView.arrangedSubviews.firstIndex(of: metadataLabel)!
-        mainStackView.insertArrangedSubview(progressView, at: index)
+        if let index = mainStackView.arrangedSubviews.firstIndex(of: metadataLabel) {
+            mainStackView.insertArrangedSubview(progressView, at: index)
+        } else {
+            mainStackView.addArrangedSubview(progressView)
+        }
         
         mainStackView.removeArrangedSubview(metadataLabel)
         metadataLabel.isHidden = true
@@ -68,19 +73,29 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         metadataLabel.isHidden = false
         metadataLabel.text = ""
-        let index = mainStackView.arrangedSubviews.firstIndex(of: progressView)!
-        mainStackView.insertArrangedSubview(metadataLabel, at: index)
+        if let index = mainStackView.arrangedSubviews.firstIndex(of: progressView) {
+            mainStackView.insertArrangedSubview(metadataLabel, at: index)
+        } else {
+            mainStackView.addArrangedSubview(metadataLabel)
+        }
         
         mainStackView.removeArrangedSubview(progressView)
         progressView.isHidden = true
         
     }
     
-    private func proceedToNextStateAndUpdateUI() {
+    private func hidePreviewStackView() {
+        mainStackView.removeArrangedSubview(previewStackView)
+        previewStackView.isHidden = true
+    }
+    
+    private func proceedToNextStateAndUpdateUI(updateUIOnly: Bool = false) {
+        
         let startButtonTitles: [State : String] = [
             .waitingForMetadata : "Start",
             .metadataReceivedAndWaitingForStart : "Start",
             .receivingData : "Stop",
+            .waitingForRecordingVideo : "Start Recording",
             .recordingVideo : "Finish Recording",
             .decodingRecordedVideo : "Done",
             .finishedDecoding : "Done"
@@ -89,66 +104,88 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             .waitingForMetadata : false,
             .metadataReceivedAndWaitingForStart : true,
             .receivingData : true,
+            .waitingForRecordingVideo : true,
             .recordingVideo : true,
             .decodingRecordedVideo : false,
             .finishedDecoding : true
         ]
         
         // Update state variables
-        if decodeMode == .liveDecode {
-            
-            switch state {
-            case .receivingData:
-                // Ending data transmission
-                state = .waitingForMetadata
-            case .metadataReceivedAndWaitingForStart:
-                // Starting data transmission
-                receivedDataPackets = []
-                receivedFrameIndices = []
-                state = .receivingData
-            default:
-                break
+        if updateUIOnly == false {
+            if decodeMode == .liveDecode {
+                
+                switch state {
+                case .waitingForMetadata:
+                    state = .metadataReceivedAndWaitingForStart
+                case .metadataReceivedAndWaitingForStart:
+                    
+                    // Starting data transmission
+                    receivedDataPackets = []
+                    receivedFrameIndices = []
+                    state = .receivingData
+                    
+                case .receivingData:
+                    
+                    // Ending data transmission
+                    state = .waitingForMetadata
+                    
+                default:
+                    break
+                }
+                
+            } else if decodeMode == .recordAndDecode {
+                
+                switch state {
+                case .waitingForRecordingVideo:
+                    
+                    startVideoRecording()
+                    state = .recordingVideo
+                    
+                case .recordingVideo:
+                    
+                    stopVideoRecording()
+                    state = .decodingRecordedVideo
+                    
+                case .decodingRecordedVideo:
+                    
+                    state = .finishedDecoding
+                    
+                default:
+                    break
+                }
+                
             }
-            
-        } else if decodeMode == .recordAndDecode {
-            
-            switch state {
-            case .metadataReceivedAndWaitingForStart:
-                startRecordingVideo()
-                state = .recordingVideo
-            case .recordingVideo:
-                StopRecordingVideo()
-                state = .decodingRecordedVideo
-            default:
-                break
-            }
-            
         }
         
         // Update UI
-        startButton.setTitle(startButtonTitles[state], for: .normal)
-        startButton.isEnabled = startButtonEnabledStates[state]!
-        switch state {
-        case .waitingForMetadata:
-            showMetadataLabelAndHideProgressView()
-        case .receivingData:
-            showProgressViewAndHideMetadataLabel()
-        case .decodingRecordedVideo:
-            showProgressViewAndHideMetadataLabel()
-        case .finishedDecoding:
-            showMetadataLabelAndHideProgressView()
-        default:
-            break
+        DispatchQueue.main.async {
+            self.startButton.setTitle(startButtonTitles[self.state], for: .normal)
+            self.startButton.isEnabled = startButtonEnabledStates[self.state]!
+            switch self.state {
+            case .waitingForMetadata:
+                self.showMetadataLabelAndHideProgressView()
+            case .receivingData:
+                self.showProgressViewAndHideMetadataLabel()
+            case .decodingRecordedVideo:
+                self.showProgressViewAndHideMetadataLabel()
+                self.hidePreviewStackView()
+            case .finishedDecoding:
+                self.showMetadataLabelAndHideProgressView()
+            default:
+                break
+            }
         }
         
         // Stop session
-        switch state {
-        case .decodingRecordedVideo:
-            self.sessionQueue.async {
-                self.stopSession()
+        if updateUIOnly == false {
+            switch state {
+            case .decodingRecordedVideo:
+                sessionQueue.async {
+                    self.stopSession()
+                }
+            default:
+                break
             }
-        default:
-            break
         }
     }
     
@@ -159,10 +196,20 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 
         self.title = "Receiving"
         
+        // Intialize state and start button
+        switch decodeMode {
+        case .liveDecode:
+            state = .waitingForMetadata
+        case .recordAndDecode:
+            state = .waitingForRecordingVideo
+        }
+        proceedToNextStateAndUpdateUI(updateUIOnly: true)
+        
         // Assign preview layer references on the main thread
         widePreviewLayer = widePreviewView.previewLayer
         telephotoPreviewLayer = telephotoPreviewView.previewLayer
         
+        // Configure session
         sessionQueue.async {
             self.configureSessionDuringSetup()
         }
@@ -175,10 +222,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             previewStackView.removeArrangedSubview(telephotoPreviewView)
             telephotoPreviewView.removeFromSuperview()
         }
-        
-        // Disable start button
-        startButton.isEnabled = false
-        
+                
         // Hide progress view
         mainStackView.removeArrangedSubview(progressView)
         progressView.isHidden = true
@@ -200,30 +244,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    private func startSession() {
-        guard let session = self.session else { return }
-        
-        if case .success(_) = self.setupResult {
-            session.startRunning()
-            
-            // Print video spec
-            for input in session.inputs {
-                guard let input = input as? AVCaptureDeviceInput else { continue }
-                let format = input.device.activeFormat
-                let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-                print("[Info] Video format: \(dimensions.width)x\(dimensions.height)@\(maxFrameRate)fps")
-            }
-            
-        }
-    }
-    
-    private func stopSession() {
-        guard let session = self.session else { return }
-        session.stopRunning()
-    }
-    
-    // MARK: - Realtime Video Processing
+    // MARK: - Live Video Processing
     
     private let ciContext = CIContext(options: [.useSoftwareRenderer : false])
     
@@ -239,7 +260,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         return _detector
     }
     
-    var receiveMode: ReceiveMode = .dualCamera
+    var receiveMode: ReceiveMode = .singleCamera
     var decodeMode: DecodeMode = .liveDecode
     private var frameNumber = 0
     private var state: State = .waitingForMetadata
@@ -250,7 +271,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
         
         // Detect QR codes
-        if let wideCameraVideoData = synchronizedDataCollection[dualCameraWideVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+        if let wideCameraVideoData = synchronizedDataCollection[wideCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
             let sampleBuffer = wideCameraVideoData.sampleBuffer
             if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
                 detectCodes(imageBuffer: imageBuffer, debugCaption: "Wide")
@@ -259,7 +280,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             print("[Synchronizer] Warning: data from wide camera is dropped")
         }
         
-        if let telephotoCameraVideoData = synchronizedDataCollection[dualCameraTelephotoVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
+        if let telephotoCameraVideoData = synchronizedDataCollection[telephotoCameraVideoDataOutput] as? AVCaptureSynchronizedSampleBufferData {
             let sampleBuffer = telephotoCameraVideoData.sampleBuffer
             if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
                 detectCodes(imageBuffer: imageBuffer, debugCaption: "Telephoto")
@@ -280,7 +301,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         
-        let attachments =  sampleBuffer.attachments.propagated.merging(sampleBuffer.attachments.nonPropagated, uniquingKeysWith: { (a, _) -> Any in
+        let attachments = sampleBuffer.attachments.propagated.merging(sampleBuffer.attachments.nonPropagated, uniquingKeysWith: { (a, _) -> Any in
             return a
         })
         let reasonKey = kCMSampleBufferAttachmentKey_DroppedFrameReason as String
@@ -301,44 +322,166 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         print("[SampleBufferDelegate] Warning: frame loss, reason: \(reason)")
     }
     
-    // MARK: - Video Recording And Postprocessing
+    // MARK: - Video Recording
     
     private var movieFileURLs = [URL]()
     
-    private func startRecordingVideo() {
+    private func generateMovieFileURL() -> URL {
+        let fileName = UUID().uuidString as NSString
+        let fileExtension = "mov"
+        let fileDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let filePath = fileDirectory.appendingPathComponent(fileName.appendingPathExtension(fileExtension)!)
+        return filePath
+    }
+    
+    private func startVideoRecording() {
         
-        movieFileURLs = []
+        print("[Video Recording] Video recording started.")
         
-        for output in movieFileOutputs {
-            let url = generateMovieFileURL()
-            output.startRecording(to: url, recordingDelegate: self)
-            movieFileURLs.append(url)
+        switch receiveMode {
+        case .singleCamera:
+            
+            let wideCameraMovieURL = generateMovieFileURL()
+            movieFileURLs = [wideCameraMovieURL]
+            wideCameraMovieFileOutput.startRecording(to: wideCameraMovieURL, recordingDelegate: self)
+            
+        case .dualCamera:
+            
+            let wideCameraMovieURL = generateMovieFileURL()
+            let telephotoCameraMovieURL = generateMovieFileURL()
+            movieFileURLs = [wideCameraMovieURL, telephotoCameraMovieURL]
+            wideCameraMovieFileOutput.startRecording(to: wideCameraMovieURL, recordingDelegate: self)
+            telephotoCameraMovieFileOutput.startRecording(to: telephotoCameraMovieURL, recordingDelegate: self)
+            
         }
+        
     }
     
-    private func StopRecordingVideo() {
+    private func stopVideoRecording() {
         
-        for output in movieFileOutputs {
-            output.stopRecording()
+        print("[Video Recording] Video recording stopped.")
+        
+        switch receiveMode {
+        case .singleCamera:
+            
+            wideCameraMovieFileOutput.stopRecording()
+            
+        case .dualCamera:
+            
+            wideCameraMovieFileOutput.stopRecording()
+            telephotoCameraMovieFileOutput.stopRecording()
+            
         }
-    }
-    
-    private func startDecodingRecordedVideo() {
-        
-        
         
     }
     
-    // Video recording is finished
+    /// A Boolean preventing calling `startVideoFileDecoding()` twice.
+    private var startedDecoding = false
+    
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-        
-        // Update UI and state
-        DispatchQueue.main.async {
-            self.proceedToNextStateAndUpdateUI()
-        }
                 
+        guard startedDecoding == false else { return }
+        startedDecoding = true
         // Start decoding
-        startDecodingRecordedVideo()
+        videoFileDecodingQueue.async {
+            self.startVideoFileDecoding()
+        }
+    }
+    
+    // MARK: - Offline Video Processing
+    
+    private let videoFileDecodingQueue = DispatchQueue(label: "videoFileDecodingQueue", qos: .userInitiated)
+
+    /// Starts decoding the captured video files.
+    ///
+    /// You must call this method on an appropriate `DispatchQueue`.
+    private func startVideoFileDecoding() {
+        
+        print("[Video Decoding] Video file decoding started.")
+        
+        defer {
+            // Delete files
+            for url in movieFileURLs {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch let error {
+                    print("[Video Decoding] Failed to delete file at url \(url.path), error: \(error)")
+                }
+            }
+        }
+        
+        for (index, url) in movieFileURLs.enumerated() {
+            
+            // Create reader
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                print("[Video Decoding] Failed to read file because file does not exist at URL: \(url.path)")
+                return
+            }
+            let asset = AVAsset(url: url)
+            var reader: AVAssetReader
+            do {
+                reader = try AVAssetReader(asset: asset)
+            } catch let error {
+                print("[Video Decoding] Failed to instantiate AVAssetReader, error: \(error)")
+                return
+            }
+            
+            // Create output
+            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                print("[Video Decoding] Video track is not found in asset.")
+                return
+            }
+            let options = [kCVPixelBufferPixelFormatTypeKey as String : Int(kCVPixelFormatType_32BGRA)]
+            let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: options)
+            
+            // Add output
+            guard reader.canAdd(output) else {
+                print("[Video Decoding] Cannot add AVAssetReaderTrackOutput to AVAssetReader.")
+                return
+            }
+            reader.add(output)
+            
+            // Start reading & decoding video
+            let totalNumberOfFrames = Float(videoTrack.nominalFrameRate) * Float(CMTimeGetSeconds(asset.duration))
+            var frameCount: Float = 1
+            reader.startReading()
+            while reader.status == .reading {
+                
+                // Autoreleasepool is required for releasing CMSampleBuffer, otherwise there will be memory leaks
+                var breakFlag = false
+                autoreleasepool {
+                    if let sampleBuffer = output.copyNextSampleBuffer() {
+                        guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+                        var image = CIImage(cvImageBuffer: imageBuffer) // remove this
+                        let debugCaption = index == 0 ? "Wide" : "Telephoto"
+                        detectCodes(imageBuffer: imageBuffer, debugCaption: debugCaption)
+                        frameCount += 1
+                        image = image.clampedToExtent() // remove this
+                        
+                        // Update progress view
+                        let progress = frameCount / totalNumberOfFrames
+                        DispatchQueue.main.async {
+                            self.progressView.setProgress(progress, animated: false)
+                        }
+                    } else {
+                        breakFlag = true
+                    }
+                }
+                if breakFlag { break }
+            }
+            
+            // Check if there is any error after reading is finished
+            guard reader.status != .failed else {
+                print("[Video Decoding] AVAssetReader has failed to read, error: \(reader.error!)")
+                return
+            }
+            
+        }
+        
+        // Advance the state
+        proceedToNextStateAndUpdateUI()
+        
+        print("[Video Decoding] Video file decoding finished.")
     }
     
     // MARK: - Code Detection
@@ -356,10 +499,16 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     func detectCodes(imageBuffer: CVImageBuffer, debugCaption: String) {
         
-        if state == .waitingForMetadata {
+        switch state {
+        case .waitingForMetadata:
             detectAndReceiveMetadataPackets(imageBuffer: imageBuffer)
-        } else if state == .receivingData {
+        case .receivingData:
             detectAndReceiveDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+        case .decodingRecordedVideo:
+            detectAndReceiveMetadataPackets(imageBuffer: imageBuffer)
+            detectAndReceiveDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+        default:
+            break
         }
     }
     
@@ -377,14 +526,15 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             totalCountOfFrames = Int(packet.numberOfFrames)
             print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName)")
+          
+            // Update metadata label
             DispatchQueue.main.async {
                 self.metadataLabel.text = "No. of frames: \(packet.numberOfFrames)\nFile size: \(packet.fileSize)\nFile name: \(fileName)"
             }
             
-            // Update variables
-            state = .metadataReceivedAndWaitingForStart
-            DispatchQueue.main.async {
-                self.startButton.isEnabled = true
+            // Update state
+            if decodeMode == .liveDecode {
+                proceedToNextStateAndUpdateUI()
             }
         }
     }
@@ -440,7 +590,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     var videoFormat: AVCaptureDevice.Format?
     private let sessionQueue = DispatchQueue(label: "sessionQueue", qos: .userInitiated)
     private let dataOutputQueue = DispatchQueue(label: "dataOutputQueue")
-    private let videoFileDecodingQueue = DispatchQueue(label: "videoFileDecodingQueue", qos: .userInitiated)
     private var session: AVCaptureSession!
     private var multiCamSession: AVCaptureMultiCamSession! {
         return session as? AVCaptureMultiCamSession
@@ -449,21 +598,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     private(set) var dualCameraDeviceInput: AVCaptureDeviceInput!
     private(set) var wideCameraDeviceInput: AVCaptureDeviceInput!
-    private let dualCameraWideVideoDataOutput = AVCaptureVideoDataOutput()
-    private let dualCameraTelephotoVideoDataOutput = AVCaptureVideoDataOutput()
     private let wideCameraVideoDataOutput = AVCaptureVideoDataOutput()
+    private let telephotoCameraVideoDataOutput = AVCaptureVideoDataOutput()
     private let wideCameraMovieFileOutput = AVCaptureMovieFileOutput()
     private let telephotoCameraMovieFileOutput = AVCaptureMovieFileOutput()
     private var dataOutputSynchronizer: AVCaptureDataOutputSynchronizer!
-    
-    private var movieFileOutputs: [AVCaptureMovieFileOutput] {
-        switch receiveMode {
-        case .singleCamera:
-            return [wideCameraMovieFileOutput]
-        case .dualCamera:
-            return [wideCameraMovieFileOutput, telephotoCameraMovieFileOutput]
-        }
-    }
     
     private func configureSessionDuringSetup() {
         guard case .success(_) = setupResult else { return }
@@ -524,53 +663,81 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     return
             }
             
-            // Add video data outputs
-            guard session.canAddOutput(dualCameraWideVideoDataOutput) else {
-                print("[Session Configuration] Could not add wide camera video data output.")
-                setupResult = .configurationFailed
-                return
+            // Add outputs and create connections
+            switch decodeMode {
+            case .liveDecode:
+                
+                // Add video data outputs
+                guard session.canAddOutput(wideCameraVideoDataOutput) else {
+                    print("[Session Configuration] Could not add wide camera video data output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                guard session.canAddOutput(telephotoCameraVideoDataOutput) else {
+                    print("[Session Configuration] Could not add telephoto camera video data output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addOutputWithNoConnections(wideCameraVideoDataOutput)
+                session.addOutputWithNoConnections(telephotoCameraVideoDataOutput)
+                wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+                telephotoCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+                wideCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
+                telephotoCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
+                
+                // Add video data connections
+                let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraVideoPort], output: wideCameraVideoDataOutput)
+                let telephotoCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraVideoPort], output: telephotoCameraVideoDataOutput)
+                guard session.canAddConnection(wideCameraVideoDataOutputConnection) else {
+                    print("[Session Configuration] Could not add wide camera video connection.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addConnection(wideCameraVideoDataOutputConnection)
+                guard session.canAddConnection(telephotoCameraVideoDataOutputConnection) else {
+                    print("[Session Configuration] Could not add telephoto camera video connection.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addConnection(telephotoCameraVideoDataOutputConnection)
+                
+                // Add data output synchronizer
+                let dataOutputs = [wideCameraVideoDataOutput, telephotoCameraVideoDataOutput]
+                dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: dataOutputs)
+                dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
+                
+            case .recordAndDecode:
+                
+                // Add movie file outputs
+                guard session.canAddOutput(wideCameraMovieFileOutput) else {
+                    print("[Session Configuration] Could not add wide camera movie file output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addOutputWithNoConnections(wideCameraMovieFileOutput)
+                guard session.canAddOutput(telephotoCameraMovieFileOutput) else {
+                    print("[Session Configuration] Could not add telephoto camera movie file output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addOutputWithNoConnections(telephotoCameraMovieFileOutput)
+                
+                // Add movie file output connections
+                let wideCameraMovieFileOutputConnection = AVCaptureConnection(inputPorts: [wideCameraVideoPort], output: wideCameraMovieFileOutput)
+                let telephotoCameraMovieFileOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraVideoPort], output: telephotoCameraMovieFileOutput)
+                guard session.canAddConnection(wideCameraMovieFileOutputConnection) else {
+                    print("[Session Configuration] Could not add wide movie file output connection.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addConnection(wideCameraMovieFileOutputConnection)
+                guard session.canAddConnection(telephotoCameraMovieFileOutputConnection) else {
+                    print("[Session Configuration] Could not add telephoto movie file output connection.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addConnection(telephotoCameraMovieFileOutputConnection)
             }
-            guard session.canAddOutput(dualCameraTelephotoVideoDataOutput) else {
-                print("[Session Configuration] Could not add telephoto camera video data output.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addOutputWithNoConnections(dualCameraWideVideoDataOutput)
-            session.addOutputWithNoConnections(dualCameraTelephotoVideoDataOutput)
-            dualCameraWideVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
-            dualCameraTelephotoVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
-            dualCameraWideVideoDataOutput.alwaysDiscardsLateVideoFrames = false
-            dualCameraTelephotoVideoDataOutput.alwaysDiscardsLateVideoFrames = false
-            
-            // Add movie file outputs
-            guard session.canAddOutput(wideCameraMovieFileOutput) else {
-                print("[Session Configuration] Could not add wide camera movie file output.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addOutput(wideCameraMovieFileOutput)
-            guard session.canAddOutput(telephotoCameraMovieFileOutput) else {
-                print("[Session Configuration] Could not add telephoto camera movie file output.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addOutput(telephotoCameraMovieFileOutput)
-            
-            // Add video data connections
-            let wideCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [wideCameraVideoPort], output: dualCameraWideVideoDataOutput)
-            let telephotoCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [telephotoCameraVideoPort], output: dualCameraTelephotoVideoDataOutput)
-            guard session.canAddConnection(wideCameraVideoDataOutputConnection) else {
-                print("[Session Configuration] Could not add wide camera video connection.")
-                setupResult = .configurationFailed
-                return
-            }
-            guard session.canAddConnection(telephotoCameraVideoDataOutputConnection) else {
-                print("[Session Configuration] Could not add telephoto camera video connection.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addConnection(wideCameraVideoDataOutputConnection)
-            session.addConnection(telephotoCameraVideoDataOutputConnection)
             
             // Add video preview layer connections
             let widePreviewLayerConnection = AVCaptureConnection(inputPort: wideCameraVideoPort, videoPreviewLayer: widePreviewLayer)
@@ -587,11 +754,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
             session.addConnection(widePreviewLayerConnection)
             session.addConnection(telephotoPreviewLayerConnection)
-            
-            // Add data output synchronizer
-            let dataOutputs = [dualCameraWideVideoDataOutput, dualCameraTelephotoVideoDataOutput]
-            dataOutputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: dataOutputs)
-            dataOutputSynchronizer.setDelegate(self, queue: dataOutputQueue)
             
             // Check system cost
             print("[Session Configuration] MultiCam system pressure cost: \(multiCamSession.systemPressureCost), hardware cost: \(multiCamSession.hardwareCost)")
@@ -623,30 +785,60 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
             session.addInput(wideCameraDeviceInput)
             
-            // Add outputs
-            guard session.canAddOutput(wideCameraVideoDataOutput) else {
-                print("[Session Configuration] Could not add wide camera video data output.")
-                setupResult = .configurationFailed
-                return
+            // Add output
+            switch decodeMode {
+            case .liveDecode:
+                
+                // Add video data output
+                guard session.canAddOutput(wideCameraVideoDataOutput) else {
+                    print("[Session Configuration] Could not add wide camera video data output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addOutput(wideCameraVideoDataOutput)
+                wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+                wideCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
+                wideCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
+                
+            case .recordAndDecode:
+                
+                // Add movie file output
+                guard session.canAddOutput(wideCameraMovieFileOutput) else {
+                    print("[Session Configuration] Could not add wide camera movie file output.")
+                    setupResult = .configurationFailed
+                    return
+                }
+                session.addOutput(wideCameraMovieFileOutput)
             }
-            session.addOutput(wideCameraVideoDataOutput)
-            guard session.canAddOutput(wideCameraMovieFileOutput) else {
-                print("[Session Configuration] Could not add wide camera movie file output.")
-                setupResult = .configurationFailed
-                return
-            }
-            session.addOutput(wideCameraMovieFileOutput)
-            wideCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
-            wideCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
-            wideCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
-            
+
             setupResult = .success(.singleCamera)
             print("[Session Configuration] Single camera session configuration is successful.")
         }
         
     }
     
-    // MARK: - Utilities
+    private func startSession() {
+        guard let session = self.session, state != .decodingRecordedVideo, state != .finishedDecoding else { return }
+        
+        if case .success(_) = self.setupResult {
+            session.startRunning()
+            
+            // Print video spec
+            for input in session.inputs {
+                guard let input = input as? AVCaptureDeviceInput else { continue }
+                let format = input.device.activeFormat
+                let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+                print("[Info] Video format: \(dimensions.width)x\(dimensions.height)@\(maxFrameRate)fps")
+            }
+            
+        }
+    }
+    
+    private func stopSession() {
+        guard let session = self.session else { return }
+        session.stopRunning()
+    }
     
     private func setVideoFormat(of device: AVCaptureDevice, to format: AVCaptureDevice.Format) {
         
@@ -664,12 +856,5 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
         
     }
-    
-    private func generateMovieFileURL() -> URL {
-        let fileName = NSUUID().uuidString as NSString
-        let fileDirectory = NSTemporaryDirectory() as NSString
-        let fileExtension = "mov"
-        let filePath = fileDirectory.appendingPathComponent(fileName.appendingPathExtension(fileExtension)!)
-        return URL(fileURLWithPath: filePath)
-    }
+        
 }
