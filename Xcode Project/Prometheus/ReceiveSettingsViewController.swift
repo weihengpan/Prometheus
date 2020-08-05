@@ -240,10 +240,13 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         let deviceType: AVCaptureDevice.DeviceType = multiCamOnly ? .builtInDualCamera : .builtInWideAngleCamera
         guard let device = AVCaptureDevice.default(deviceType, for: .video, position: .back) else { return [] }
     
-        let formats = device.formats
+        var formats = device.formats
         if multiCamOnly {
-            return formats.filter { $0.isMultiCamSupported }
+            formats = formats.filter { $0.isMultiCamSupported }
         }
+        
+        // Use sRGB formats only
+        formats = formats.filter { $0.supportedColorSpaces == [.sRGB] }
         return formats
     }
     
