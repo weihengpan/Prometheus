@@ -2,8 +2,8 @@
 //  QRCodeInformation.swift
 //  Prometheus
 //
-//  Created by 潘维恒 on 2020/7/29.
-//  Copyright © 2020 PAN Weiheng. All rights reserved.
+//  Created by PAN Weiheng on 2020/7/29.
+//  Copyright © 2020 PAN Weiheng. Please refer to LICENSE for license information.
 //
 
 import Foundation
