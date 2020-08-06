@@ -11,7 +11,7 @@ import AVFoundation
 
 class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSource, UIPickerViewDelegate {
     
-    typealias ReceiveMode = ReceiveViewController.ReceiveMode
+    typealias CameraType = ReceiveViewController.CameraType
     typealias DecodeMode = ReceiveViewController.DecodeMode
     
     // MARK: - IB Outlets
@@ -46,7 +46,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         
         if let viewController = segue.destination as? ReceiveViewController {
                         
-            viewController.receiveMode = UserData.receiveMode
+            viewController.cameraType = UserData.cameraType
             viewController.decodeMode = UserData.decodeMode
             if let videoFormat = selectedVideoFormat {
                 viewController.videoFormat = videoFormat
@@ -58,8 +58,8 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     
     private func setupCameraSegmentedControl() {
         
-        let receiveMode = UserData.receiveMode
-        let index = ReceiveMode.allCases.firstIndex(of: receiveMode)!
+        let cameraType = UserData.cameraType
+        let index = CameraType.allCases.firstIndex(of: cameraType)!
         cameraSegmentedControl.selectedSegmentIndex = index
         cameraSegmentedControl.addTarget(self, action: #selector(cameraSegmentedControlValueChanged(_:)), for: .valueChanged)
         
@@ -125,11 +125,11 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         }
         
         // Persist data
-        let receiveMode = ReceiveMode.allCases[sender.selectedSegmentIndex]
-        UserData.receiveMode = receiveMode
+        let cameraType = CameraType.allCases[sender.selectedSegmentIndex]
+        UserData.cameraType = cameraType
         
         // Update available video formats and picker view rows
-        let multiCamOnly = receiveMode == .dualCamera
+        let multiCamOnly = cameraType == .dualCamera
         availableVideoFormats = getAvailableVideoFormats(multiCamOnly: multiCamOnly)
         videoFormatPickerView.reloadAllComponents()
         

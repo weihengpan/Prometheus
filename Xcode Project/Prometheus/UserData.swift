@@ -14,8 +14,8 @@ final class UserData {
     
     // MARK: - Receive Settings
     
-    @UserDefaultEnum(key: "receiveMode", defaultValue: .singleCamera)
-    static var receiveMode: ReceiveViewController.ReceiveMode
+    @UserDefaultEnum(key: "cameraType", defaultValue: .singleCamera)
+    static var cameraType: ReceiveViewController.CameraType
     
     @UserDefault(key: "videoFormatPickerViewSelectedRow", defaultValue: 0)
     static var videoFormatPickerViewSelectedRow: Int

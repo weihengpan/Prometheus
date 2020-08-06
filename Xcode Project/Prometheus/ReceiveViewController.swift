@@ -11,7 +11,7 @@ import AVFoundation
 
 final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchronizerDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureFileOutputRecordingDelegate {
     
-    enum ReceiveMode: String, CaseIterable {
+    enum CameraType: String, CaseIterable {
         case singleCamera
         case dualCamera
     }
@@ -218,7 +218,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         UIApplication.shared.isIdleTimerDisabled = true
         
         // Configure preview views
-        if receiveMode == .singleCamera {
+        if cameraType == .singleCamera {
             previewStackView.removeArrangedSubview(telephotoPreviewView)
             telephotoPreviewView.removeFromSuperview()
         }
@@ -260,7 +260,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         return _detector
     }
     
-    var receiveMode: ReceiveMode = .singleCamera
+    var cameraType: CameraType = .singleCamera
     var decodeMode: DecodeMode = .liveDecode
     private var frameNumber = 0
     private var state: State = .waitingForMetadata
@@ -338,7 +338,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         print("[Video Recording] Video recording started.")
         
-        switch receiveMode {
+        switch cameraType {
         case .singleCamera:
             
             let wideCameraMovieURL = generateMovieFileURL()
@@ -361,7 +361,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         print("[Video Recording] Video recording stopped.")
         
-        switch receiveMode {
+        switch cameraType {
         case .singleCamera:
             
             wideCameraMovieFileOutput.stopRecording()
@@ -582,7 +582,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     // MARK: - Capture Session Management
     
     private enum SessionSetupResult {
-        case success(ReceiveMode)
+        case success(CameraType)
         case notAuthorized
         case configurationFailed
     }
@@ -607,10 +607,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private func configureSessionDuringSetup() {
         guard case .success(_) = setupResult else { return }
         
-        configureSession(forReceiveMode: receiveMode)
+        configureSession(forCameraType: cameraType)
     }
     
-    private func configureSession(forReceiveMode receiveMode: ReceiveMode) {
+    private func configureSession(forCameraType cameraType: CameraType) {
         
         // Clean up
         if session != nil {
@@ -620,7 +620,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
         
         // Configure session
-        switch receiveMode {
+        switch cameraType {
         case .dualCamera:
             
             // Intitialize session

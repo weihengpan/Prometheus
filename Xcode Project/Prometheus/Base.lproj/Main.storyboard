@@ -109,8 +109,8 @@
                                             <rect key="frame" x="0.0" y="0.0" width="414" height="43.666667938232422"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Camera" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="kJ8-Ji-WGG">
-                                                    <rect key="frame" x="20" y="11.666666666666664" width="60" height="21"/>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Camera Type" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="kJ8-Ji-WGG">
+                                                    <rect key="frame" x="20" y="11.666666666666664" width="102" height="21"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                                     <nil key="textColor"/>
                                                     <nil key="highlightedColor"/>
@@ -122,7 +122,7 @@
                                                         <segment title="Dual"/>
                                                     </segments>
                                                     <connections>
-                                                        <action selector="receiveModeSegmentedControlIndexChanged:" destination="9pv-A4-QxB" eventType="valueChanged" id="pWn-eb-2Pe"/>
+                                                        <action selector="cameraTypeSegmentedControlIndexChanged:" destination="9pv-A4-QxB" eventType="valueChanged" id="pWn-eb-2Pe"/>
                                                     </connections>
                                                 </segmentedControl>
                                             </subviews>
@@ -639,17 +639,17 @@
                                 </constraints>
                             </view>
                             <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="OKN-5o-qBY">
-                                <rect key="frame" x="20" y="128" width="374" height="665"/>
+                                <rect key="frame" x="20" y="128" width="374" height="595"/>
                                 <subviews>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9JZ-wx-9ki" customClass="MetalRenderView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="25.666666666666657" y="0.0" width="322.66666666666674" height="322.66666666666669"/>
+                                        <rect key="frame" x="43.333333333333343" y="0.0" width="287.33333333333326" height="287.66666666666669"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="9JZ-wx-9ki" secondAttribute="height" multiplier="1:1" id="YT5-86-90M"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="bry-3y-fTQ" customClass="MetalRenderView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="25.666666666666657" y="342.66666666666674" width="322.66666666666674" height="322.33333333333326"/>
+                                        <rect key="frame" x="43.333333333333343" y="307.66666666666674" width="287.33333333333326" height="287.33333333333326"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="bry-3y-fTQ" secondAttribute="height" multiplier="1:1" id="ffa-LN-7sT"/>
