@@ -14,6 +14,15 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     typealias CameraType = ReceiveViewController.CameraType
     typealias DecodeMode = ReceiveViewController.DecodeMode
     
+    @UserDefaultEnum(key: "cameraType", defaultValue: .singleCamera)
+    var cameraType: ReceiveViewController.CameraType
+    
+    @UserDefault(key: "videoFormatPickerViewSelectedRow", defaultValue: 0)
+    var videoFormatPickerViewSelectedRow: Int
+    
+    @UserDefaultEnum(key: "decodeMode", defaultValue: .liveDecode)
+    var decodeMode: ReceiveViewController.DecodeMode
+    
     // MARK: - IB Outlets
     
     @IBOutlet weak var cameraSegmentedControl: UISegmentedControl!
@@ -46,8 +55,8 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         
         if let viewController = segue.destination as? ReceiveViewController {
                         
-            viewController.cameraType = UserData.cameraType
-            viewController.decodeMode = UserData.decodeMode
+            viewController.cameraType = self.cameraType
+            viewController.decodeMode = self.decodeMode
             if let videoFormat = selectedVideoFormat {
                 viewController.videoFormat = videoFormat
             }
@@ -58,7 +67,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     
     private func setupCameraSegmentedControl() {
         
-        let cameraType = UserData.cameraType
+        let cameraType = self.cameraType
         let index = CameraType.allCases.firstIndex(of: cameraType)!
         cameraSegmentedControl.selectedSegmentIndex = index
         cameraSegmentedControl.addTarget(self, action: #selector(cameraSegmentedControlValueChanged(_:)), for: .valueChanged)
@@ -76,7 +85,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     private func setupVideoFormatLabelAndPickerView() {
         
         // Select row
-        let row = UserData.videoFormatPickerViewSelectedRow
+        let row = self.videoFormatPickerViewSelectedRow
         videoFormatPickerView.selectRow(row, inComponent: 0, animated: false)
     
         // Hide picker
@@ -91,7 +100,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     
     private func setupDecodeModeSegmentedControl() {
         
-        let decodeMode = UserData.decodeMode
+        let decodeMode = self.decodeMode
         let index = DecodeMode.allCases.firstIndex(of: decodeMode)!
         decodeModeSegmentedControl.selectedSegmentIndex = index
         decodeModeSegmentedControl.addTarget(self, action: #selector(decodeModeSegmentedControlValueChanged(_:)), for: .valueChanged)
@@ -126,7 +135,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         
         // Persist data
         let cameraType = CameraType.allCases[sender.selectedSegmentIndex]
-        UserData.cameraType = cameraType
+        self.cameraType = cameraType
         
         // Update available video formats and picker view rows
         let multiCamOnly = cameraType == .dualCamera
@@ -162,7 +171,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         
         let index = sender.selectedSegmentIndex
         let decodeMode = DecodeMode.allCases[index]
-        UserData.decodeMode = decodeMode
+        self.decodeMode = decodeMode
         
     }
     
@@ -226,7 +235,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         selectedVideoFormat = format
         
         // Persist value
-        UserData.videoFormatPickerViewSelectedRow = row
+        self.videoFormatPickerViewSelectedRow = row
     }
     
     // MARK: - Utilities

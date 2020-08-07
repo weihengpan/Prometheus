@@ -13,6 +13,30 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     typealias SendMode = SendViewController.SendMode
     typealias ErrorCorrectionLevel = QRCodeInformation.ErrorCorrectionLevel
     
+    @UserDefaultEnum(key: "sendMode", defaultValue: .single)
+    var sendMode: SendViewController.SendMode
+    
+    @UserDefault(key: "sendFrameRate", defaultValue: 15.0)
+    var sendFrameRate: Double
+    
+    @UserDefault(key: "codeVersion", defaultValue: 18)
+    var codeVersion: Int
+    
+    @UserDefaultEnum(key: "codeECL", defaultValue: .low)
+    var codeECL: QRCodeInformation.ErrorCorrectionLevel
+    
+    @UserDefault(key: "largerCodeVersion", defaultValue: 18)
+    var largerCodeVersion: Int
+    
+    @UserDefaultEnum(key: "largerCodeECL", defaultValue: .quartile)
+    var largerCodeECL: QRCodeInformation.ErrorCorrectionLevel
+    
+    @UserDefault(key: "smallerCodeVersion", defaultValue: 13)
+    var smallerCodeVersion: Int
+    
+    @UserDefaultEnum(key: "smallerCodeECL", defaultValue: .low)
+    var smallerCodeECL: QRCodeInformation.ErrorCorrectionLevel
+    
     // MARK: - IB Outlets
     
     @IBOutlet weak var sendModeLabel: UILabel!
@@ -63,11 +87,11 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if let sendVC = segue.destination as? SendViewController {
             
-            sendVC.sendMode = UserData.sendMode
-            sendVC.sendFrameRate = UserData.sendFrameRate
-            sendVC.codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: UserData.codeVersion, errorCorrectionLevel: UserData.codeECL)!
-            sendVC.largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: UserData.largerCodeVersion, errorCorrectionLevel: UserData.largerCodeECL)!
-            sendVC.smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: UserData.smallerCodeVersion, errorCorrectionLevel: UserData.smallerCodeECL)!
+            sendVC.sendMode = self.sendMode
+            sendVC.sendFrameRate = self.sendFrameRate
+            sendVC.codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.codeVersion, errorCorrectionLevel: self.codeECL)!
+            sendVC.largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.largerCodeVersion, errorCorrectionLevel: self.largerCodeECL)!
+            sendVC.smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.smallerCodeVersion, errorCorrectionLevel: self.smallerCodeECL)!
         }
     }
     
@@ -76,7 +100,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     private func setupSendModeLabelAndPickerView() {
         
         // Set label text
-        let sendMode = UserData.sendMode
+        let sendMode = self.sendMode
         sendModeLabel.text = sendMode.readableName
         
         // Hide picker
@@ -94,7 +118,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         frameRateStepper.minimumValue = 1
         frameRateStepper.maximumValue = Double(UIScreen.main.maximumFramesPerSecond)
         frameRateStepper.addTarget(self, action: #selector(frameRateStepperValueChanged(_:)), for: .valueChanged)
-        frameRateStepper.value = UserData.sendFrameRate
+        frameRateStepper.value = self.sendFrameRate
         frameRateStepperValueChanged(frameRateStepper)
         
     }
@@ -107,11 +131,11 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         var value: Int
         switch stepper {
         case codeVersionStepper:
-            value = UserData.codeVersion
+            value = self.codeVersion
         case largerCodeVersionStepper:
-            value = UserData.largerCodeVersion
+            value = self.largerCodeVersion
         case smallerCodeVersionStepper:
-            value = UserData.smallerCodeVersion
+            value = self.smallerCodeVersion
         default:
             return
         }
@@ -127,11 +151,11 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         var level: ErrorCorrectionLevel
         switch stepper {
         case codeECLStepper:
-            level = UserData.codeECL
+            level = self.codeECL
         case largerCodeECLStepper:
-            level = UserData.largerCodeECL
+            level = self.largerCodeECL
         case smallerCodeECLStepper:
-            level = UserData.smallerCodeECL
+            level = self.smallerCodeECL
         default:
             return
         }
@@ -161,7 +185,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let value = sender.value
         let valueString = String(Int(value))
         frameRateLabel.text = valueString
-        UserData.sendFrameRate = value
+        self.sendFrameRate = value
     }
     
     @objc private func versionStepperValueChanged(_ sender: UIStepper) {
@@ -172,13 +196,13 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         switch sender {
         case codeVersionStepper:
             codeVersionLabel.text = valueString
-            UserData.codeVersion = value
+            self.codeVersion = value
         case largerCodeVersionStepper:
             largerCodeVersionLabel.text = valueString
-            UserData.largerCodeVersion = value
+            self.largerCodeVersion = value
         case smallerCodeVersionStepper:
             smallerCodeVersionLabel.text = valueString
-            UserData.smallerCodeVersion = value
+            self.smallerCodeVersion = value
         default:
             break
         }
@@ -194,13 +218,13 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         switch sender {
         case codeECLStepper:
             codeECLLabel.text = levelString
-            UserData.codeECL = level
+            self.codeECL = level
         case largerCodeECLStepper:
             largerCodeECLLabel.text = levelString
-            UserData.largerCodeECL = level
+            self.largerCodeECL = level
         case smallerCodeECLStepper:
             smallerCodeECLLabel.text = levelString
-            UserData.smallerCodeECL = level
+            self.smallerCodeECL = level
         default:
             break
         }
@@ -272,7 +296,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         sendModeLabel.text = sendMode.readableName
 
         // Persist value
-        UserData.sendMode = sendMode
+        self.sendMode = sendMode
         
         // Update cells' visibilities
         var labelsToShow: [UILabel]
