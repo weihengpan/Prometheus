@@ -14,6 +14,7 @@
 		4CA7CDAC24D6AB6E00EC82E1 /* SendSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7CDAB24D6AB6E00EC82E1 /* SendSettingsViewController.swift */; };
 		4CA7CDB024D6D86700EC82E1 /* UserDefault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */; };
 		4CA7CDB224D6E04B00EC82E1 /* UserDefaultsEnum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */; };
+		4CAB37BD24DD872300B043CC /* String+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CAB37BC24DD872300B043CC /* String+.swift */; };
 		4CC1A20524B7421F00A2CE62 /* MetadataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */; };
 		4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20724B7423B00A2CE62 /* Data+.swift */; };
 		4CC1A20A24B7427200A2CE62 /* CIQRCodeDescriptor+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */; };
@@ -56,6 +57,7 @@
 		4CA7CDAB24D6AB6E00EC82E1 /* SendSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSettingsViewController.swift; sourceTree = "<group>"; };
 		4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefault.swift; sourceTree = "<group>"; };
 		4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsEnum.swift; sourceTree = "<group>"; };
+		4CAB37BC24DD872300B043CC /* String+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+.swift"; sourceTree = "<group>"; };
 		4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPacket.swift; sourceTree = "<group>"; };
 		4CC1A20724B7423B00A2CE62 /* Data+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+.swift"; sourceTree = "<group>"; };
 		4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIQRCodeDescriptor+.swift"; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				4CC1A20724B7423B00A2CE62 /* Data+.swift */,
+				4CAB37BC24DD872300B043CC /* String+.swift */,
 				4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */,
 			);
 			path = Extensions;
@@ -340,6 +343,7 @@
 				4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */,
 				4CA7CDAC24D6AB6E00EC82E1 /* SendSettingsViewController.swift in Sources */,
 				4CA7CDB224D6E04B00EC82E1 /* UserDefaultsEnum.swift in Sources */,
+				4CAB37BD24DD872300B043CC /* String+.swift in Sources */,
 				4C8E2C5C24D1996E00499777 /* QRCodeInformation.swift in Sources */,
 				4C8C46AB24B6F69700113A51 /* DataPacket.swift in Sources */,
 			);

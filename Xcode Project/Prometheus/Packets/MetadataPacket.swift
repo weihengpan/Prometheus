@@ -14,7 +14,12 @@ struct MetadataPacket {
     var flagBits: UInt32 // reserved
     var numberOfFrames: UInt32
     var fileSize: UInt32 // in bytes
+    
+    let fileNameEncoding: String.Encoding = .utf8
     var fileNameData: Data // encoded in UTF-8
+    var fileName: String? {
+        return String(bytes: fileNameData, encoding: fileNameEncoding)
+    }
     
     // MARK: - Initializers
     
@@ -29,7 +34,7 @@ struct MetadataPacket {
         self.flagBits = flagBits
         self.numberOfFrames = numberOfFrames
         self.fileSize = fileSize
-        guard let fileNameData = fileName.data(using: .utf8) else { return nil }
+        guard let fileNameData = fileName.data(using: fileNameEncoding) else { return nil }
         self.fileNameData = fileNameData
     }
     

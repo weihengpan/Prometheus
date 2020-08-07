@@ -92,9 +92,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private func proceedToNextStateAndUpdateUI(updateUIOnly: Bool = false) {
         
         let startButtonTitles: [State : String] = [
-            .waitingForMetadata : "Start",
-            .metadataReceivedAndWaitingForStart : "Start",
-            .receivingData : "Stop",
+            .waitingForMetadata : "Start Receiving",
+            .metadataReceivedAndWaitingForStart : "Start Receiving",
+            .receivingData : "Stop Receiving",
             .waitingForRecordingVideo : "Start Recording",
             .recordingVideo : "Finish Recording",
             .decodingRecordedVideo : "Done",
@@ -118,17 +118,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 case .waitingForMetadata:
                     state = .metadataReceivedAndWaitingForStart
                 case .metadataReceivedAndWaitingForStart:
-                    
-                    // Starting data transmission
+                    state = .receivingData
+                case .receivingData:
+                    receivedMetadataPacket = nil
                     receivedDataPackets = []
                     receivedFrameIndices = []
-                    state = .receivingData
                     
-                case .receivingData:
-                    
-                    // Ending data transmission
                     state = .waitingForMetadata
-                    
                 default:
                     break
                 }
@@ -137,23 +133,18 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 
                 switch state {
                 case .waitingForRecordingVideo:
-                    
                     startVideoRecording()
+                    
                     state = .recordingVideo
-                    
                 case .recordingVideo:
-                    
                     stopVideoRecording()
+                    
                     state = .decodingRecordedVideo
-                    
                 case .decodingRecordedVideo:
-                    
                     state = .finishedDecoding
-                    
                 default:
                     break
                 }
-                
             }
         }
         
@@ -180,9 +171,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         if updateUIOnly == false {
             switch state {
             case .decodingRecordedVideo:
-                sessionQueue.async {
-                    self.stopSession()
-                }
+                stopSession()
             default:
                 break
             }
@@ -212,6 +201,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         // Configure session
         sessionQueue.async {
             self.configureSessionDuringSetup()
+            self.startSession()
         }
         
         // Disable timed auto-lock
@@ -231,16 +221,19 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
                 
-        sessionQueue.async {
-            self.startSession()
+        guard let session = self.session else { return }
+        if session.isRunning == false {
+            startSession()
         }
+        
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        sessionQueue.async {
-            self.stopSession()
+        guard let session = self.session else { return }
+        if session.isRunning {
+            stopSession()
         }
     }
     
@@ -260,10 +253,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         return _detector
     }
     
+    private var state: State = .waitingForMetadata
+
     var cameraType: CameraType = .singleCamera
     var decodeMode: DecodeMode = .liveDecode
+
     private var frameNumber = 0
-    private var state: State = .waitingForMetadata
+    private var receivedMetadataPacket: MetadataPacket!
     private var totalCountOfFrames = 0
     private var receivedFrameIndices = Set<UInt32>()
     private var receivedDataPackets = [DataPacket]()
@@ -519,10 +515,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             guard let data = descriptor.data else { continue }
             guard let packet = MetadataPacket(archive: data) else { continue }
             
-            guard let fileName = String(bytes: packet.fileNameData, encoding: .utf8) else {
-                print("[ReceiveVC] Failed to decode file name in metadata packet.")
+            guard let fileName = packet.fileName else {
+                print("[ReceiveVC] Warning: Failed to decode file name in metadata packet. Dropping metadata packet.")
                 continue
             }
+            receivedMetadataPacket = packet
             
             totalCountOfFrames = Int(packet.numberOfFrames)
             print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName)")
@@ -540,6 +537,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     }
     
     func detectAndReceiveDataPackets(imageBuffer: CVPixelBuffer, caption: String) {
+        guard let metadataPacket = receivedMetadataPacket else {
+            print("[ReceiveVC] Warning: detectAndReceiveDataPackets(imageBuffer:caption:) called before metadata packet is received.")
+            return
+        }
+        
         let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
             guard let descriptor = code.symbolDescriptor else { continue }
@@ -556,19 +558,57 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
             print("[ReceiveVC] \(caption): Frame \(frameIndex) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
                         
+            // Received all packets
             if receivedDataPackets.count == totalCountOfFrames {
+                
+                guard let fileName = metadataPacket.fileName else { return }
+                
                 receivedDataPackets.sort(by: { $0.frameIndex < $1.frameIndex })
                 let combinedData = receivedDataPackets.lazy.map { $0.payload }.reduce(Data(), +)
-                print("[ReceiveVC] All frames received; \(combinedData.count) bytes of data.")
-                let encoding = String.Encoding.utf8
-                guard let messageString = String(data: combinedData, encoding: encoding) else {
-                    print("[ReceiveVC] Failed to decode data into string with encoding \(encoding)")
-                    return
+                print("[ReceiveVC] File \(fileName) received; \(combinedData.count) bytes of data.")
+                
+                // Try to convert to string if the file extension is "txt"
+                if fileName.getFileExtension() == "txt" {
+                    let encoding = String.Encoding.utf8
+                    guard let messageString = String(data: combinedData, encoding: encoding) else {
+                        print("[ReceiveVC] Failed to decode data into string with encoding \(encoding)")
+                        return
+                    }
+
+                    print("[ReceiveVC] String successfully decoded, length: \(messageString.count)")
                 }
-                /*print("------ BEGIN MESSAGE ------")
-                print(messageString)
-                print("------  END MESSAGE  ------")*/
-                print("[ReceiveVC] Converted string length: \(messageString.count)")
+                
+                // Save file on disk
+                let url = generateReceivedFileURL(fileName: fileName)
+                do {
+                    try combinedData.write(to: url)
+                } catch let error {
+                    print("[ReceiveVC] Failed to save received file to disk, error: \(error)")
+                }
+                
+                // Push UIActivityViewController, so that the user may share the file
+                let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                activityViewController.completionWithItemsHandler = { (_, _, _, error) in
+                    if let error = error {
+                        print("[ReceiveVC] UIActivityViewController threw an error: \(error)")
+                    }
+                    
+                    // Delete file
+                    do {
+                        try FileManager.default.removeItem(at: url)
+                    } catch let error {
+                        print("[ReceiveVC] Failed to delete received file, error: \(error)")
+                    }
+                }
+                
+                stopSession()
+                
+                DispatchQueue.main.async {
+                    self.present(activityViewController, animated: true) {
+                        self.startSession()
+                        self.proceedToNextStateAndUpdateUI()
+                    }
+                }
             }
         }
     }
@@ -577,6 +617,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         let image = CIImage(cvImageBuffer: imageBuffer)
         let codes = detector.features(in: image) as? [CIQRCodeFeature] ?? []
         return codes
+    }
+    
+    func generateReceivedFileURL(fileName: String) -> URL {
+        
+        let fileDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let filePath = fileDirectory.appendingPathComponent(fileName)
+        return filePath
     }
 
     // MARK: - Capture Session Management
@@ -821,23 +868,26 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         guard let session = self.session, state != .decodingRecordedVideo, state != .finishedDecoding else { return }
         
         if case .success(_) = self.setupResult {
-            session.startRunning()
-            
-            // Print video spec
-            for input in session.inputs {
-                guard let input = input as? AVCaptureDeviceInput else { continue }
-                let format = input.device.activeFormat
-                let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
-                print("[Info] Video format: \(dimensions.width)x\(dimensions.height)@\(maxFrameRate)fps")
+            sessionQueue.async {
+                session.startRunning()
+                
+                // Print video spec
+                for input in session.inputs {
+                    guard let input = input as? AVCaptureDeviceInput else { continue }
+                    let format = input.device.activeFormat
+                    let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                    let maxFrameRate = format.videoSupportedFrameRateRanges.first!.maxFrameRate
+                    print("[Info] Video format: \(dimensions.width)x\(dimensions.height)@\(maxFrameRate)fps")
+                }
             }
-            
         }
     }
     
     private func stopSession() {
         guard let session = self.session else { return }
-        session.stopRunning()
+        sessionQueue.async {
+            session.stopRunning()
+        }
     }
     
     private func setVideoFormat(of device: AVCaptureDevice, to format: AVCaptureDevice.Format) {
