@@ -565,12 +565,43 @@
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" id="2us-lt-p4C">
+                                        <rect key="frame" x="0.0" y="676.66667556762695" width="414" height="43.666667938232422"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="2us-lt-p4C" id="kO9-JU-UBB">
+                                            <rect key="frame" x="0.0" y="0.0" width="414" height="43.666667938232422"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Size Ratio (Linear)" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="dsn-Ta-gNE">
+                                                    <rect key="frame" x="20" y="11.666666666666664" width="140" height="21"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="0.3" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="Syo-Xf-MlE">
+                                                    <rect key="frame" x="345" y="5" width="49" height="34"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                                    <textInputTraits key="textInputTraits" autocorrectionType="no" keyboardType="decimalPad"/>
+                                                    <connections>
+                                                        <action selector="sizeRatioTextFieldEditingDidEnd:" destination="V3o-Vx-72p" eventType="editingDidEnd" id="fpn-Ts-Wvw"/>
+                                                    </connections>
+                                                </textField>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="dsn-Ta-gNE" firstAttribute="centerY" secondItem="kO9-JU-UBB" secondAttribute="centerY" id="OqF-uG-Ux7"/>
+                                                <constraint firstItem="Syo-Xf-MlE" firstAttribute="centerY" secondItem="kO9-JU-UBB" secondAttribute="centerY" id="PVo-zD-aQv"/>
+                                                <constraint firstItem="Syo-Xf-MlE" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="dsn-Ta-gNE" secondAttribute="trailing" constant="10" id="Pqn-XS-PTV"/>
+                                                <constraint firstItem="dsn-Ta-gNE" firstAttribute="leading" secondItem="kO9-JU-UBB" secondAttribute="leadingMargin" id="ZNO-HX-M9U"/>
+                                                <constraint firstAttribute="trailing" secondItem="Syo-Xf-MlE" secondAttribute="trailing" constant="20" id="zAE-gp-jP2"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
                                 </cells>
                             </tableViewSection>
                             <tableViewSection headerTitle=" " id="CBJ-Qd-5Fj">
                                 <cells>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" id="OIi-DT-5kd">
-                                        <rect key="frame" x="0.0" y="732.66667556762695" width="414" height="43.666667938232422"/>
+                                        <rect key="frame" x="0.0" y="776.33334350585938" width="414" height="43.666667938232422"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="OIi-DT-5kd" id="kFd-i1-U2p">
                                             <rect key="frame" x="0.0" y="0.0" width="414" height="43.666667938232422"/>
@@ -612,6 +643,7 @@
                         <outlet property="largerCodeVersionStepper" destination="Sa8-9D-Ysl" id="8U8-jm-nqf"/>
                         <outlet property="sendModeLabel" destination="eA7-aO-XHt" id="cd4-DI-Gie"/>
                         <outlet property="sendModePickerView" destination="6PP-80-Fz1" id="Xkd-nh-UMl"/>
+                        <outlet property="sizeRatioTextField" destination="Syo-Xf-MlE" id="xu8-hl-oud"/>
                         <outlet property="smallerCodeECLLabel" destination="cil-om-kDN" id="Q5Q-n0-Nmn"/>
                         <outlet property="smallerCodeECLStepper" destination="2Vv-dM-Ueq" id="otA-IB-ttH"/>
                         <outlet property="smallerCodeVersionLabel" destination="iNf-db-3Z9" id="xeO-NS-hbz"/>
@@ -716,6 +748,7 @@
                     <connections>
                         <segue destination="liw-EX-2TD" kind="relationship" relationship="viewControllers" id="6Hu-Al-MGE"/>
                         <segue destination="9Sf-iA-lAr" kind="relationship" relationship="viewControllers" id="lzU-1b-eKA"/>
+                        <segue destination="HQN-Ci-tIn" kind="relationship" relationship="viewControllers" id="1uj-db-gT9"/>
                     </connections>
                 </tabBarController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="HuB-VB-40B" sceneMemberID="firstResponder"/>
@@ -741,6 +774,42 @@
             </objects>
             <point key="canvasLocation" x="747.82608695652175" y="358.92857142857139"/>
         </scene>
+        <!--Duplex-->
+        <scene sceneID="50T-EI-3fa">
+            <objects>
+                <viewController id="HQN-Ci-tIn" customClass="DuplexViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Aj0-0k-LaT">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="2hC-xe-TlJ" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
+                                <rect key="frame" x="20" y="96" width="374" height="665"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" secondItem="2hC-xe-TlJ" secondAttribute="height" multiplier="9:16" id="KUT-G1-qyQ"/>
+                                </constraints>
+                            </view>
+                        </subviews>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <constraints>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="top" secondItem="1R8-WD-CCC" secondAttribute="top" priority="750" constant="20" id="4uw-KL-Vn0"/>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="top" relation="greaterThanOrEqual" secondItem="1R8-WD-CCC" secondAttribute="top" constant="20" id="7rr-70-HSE"/>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1R8-WD-CCC" secondAttribute="leading" constant="20" id="BVE-sl-lcW"/>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="leading" secondItem="1R8-WD-CCC" secondAttribute="leading" priority="750" constant="20" id="RcX-fE-Yuc"/>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="centerX" secondItem="1R8-WD-CCC" secondAttribute="centerX" id="V3S-ot-KGX"/>
+                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="centerY" secondItem="1R8-WD-CCC" secondAttribute="centerY" id="yIH-Rp-zcs"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="1R8-WD-CCC"/>
+                    </view>
+                    <tabBarItem key="tabBarItem" title="Duplex" image="arrow.up.arrow.down" catalog="system" id="aFl-Xa-A0y"/>
+                    <connections>
+                        <outlet property="previewView" destination="2hC-xe-TlJ" id="tlp-O5-bqg"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="VDY-PH-JlX" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="743" y="1053"/>
+        </scene>
         <!--Receive-->
         <scene sceneID="vRo-bZ-OFm">
             <objects>
@@ -762,6 +831,7 @@
         </scene>
     </scenes>
     <resources>
+        <image name="arrow.up.arrow.down" catalog="system" width="128" height="96"/>
         <image name="square.and.arrow.down" catalog="system" width="121" height="128"/>
         <image name="square.and.arrow.up" catalog="system" width="115" height="128"/>
     </resources>

@@ -37,6 +37,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @UserDefaultEnum(key: "smallerCodeECL", defaultValue: .low)
     var smallerCodeECL: QRCodeInformation.ErrorCorrectionLevel
     
+    @UserDefault(key: "sizeRatio", defaultValue: 0.3)
+    var sizeRatio: Double
+    
     // MARK: - IB Outlets
     
     @IBOutlet weak var sendModeLabel: UILabel!
@@ -59,6 +62,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @IBOutlet weak var smallerCodeVersionStepper: UIStepper!
     @IBOutlet weak var smallerCodeECLStepper: UIStepper!
     
+    @IBOutlet weak var sizeRatioTextField: UITextField!
+    
     @IBOutlet weak var startButton: UIButton!
     
     // MARK: - View Controller Lifecycle & Segues
@@ -71,8 +76,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
         self.title = "Send"
         
-        dynamicCellLabels = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel]
-        dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellLabels.count))
+        dynamicCellSubviews = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel, sizeRatioTextField]
+        dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellSubviews.count))
         
         setupSendModeLabelAndPickerView()
         setupFrameRateStepper()
@@ -82,6 +87,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         setupECLStepper(codeECLStepper)
         setupECLStepper(largerCodeECLStepper)
         setupECLStepper(smallerCodeECLStepper)
+        
+        dismissKeyboardWhenTapped()
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -92,6 +99,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             sendVC.codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.codeVersion, errorCorrectionLevel: self.codeECL)!
             sendVC.largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.largerCodeVersion, errorCorrectionLevel: self.largerCodeECL)!
             sendVC.smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.smallerCodeVersion, errorCorrectionLevel: self.smallerCodeECL)!
+            sendVC.smallerCodeSideLengthRatio = self.sizeRatio
         }
     }
     
@@ -231,6 +239,16 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
     }
     
+    @IBAction func sizeRatioTextFieldEditingDidEnd(_ sender: UITextField) {
+        
+        defer { sender.text = String(self.sizeRatio) }
+        
+        guard let text = sender.text else { return }
+        guard let sizeRatio = Double(text) else { return }
+        guard sizeRatio >= 0 && sizeRatio <= 1 else { return }
+        self.sizeRatio = sizeRatio
+    }
+    
     // MARK: - Table View Delegate Methods
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -243,8 +261,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             return sendModePickerView.isHidden ? 0 : defaultHeight
         }
         
-        if let label = dynamicCellLabels.first(where: { $0.isDescendant(of: cell) }) {
-            let index = dynamicCellLabels.firstIndex(of: label)!
+        if let label = dynamicCellSubviews.first(where: { $0.isDescendant(of: cell) }) {
+            let index = dynamicCellSubviews.firstIndex(of: label)!
             let isVisible = dynamicCellsVisibilities[index]
             cell.isHidden = !isVisible
             return isVisible ? defaultHeight : 0
@@ -286,7 +304,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         return sendMode.readableName
     }
     
-    private var dynamicCellLabels = [UILabel]()
+    private var dynamicCellSubviews = [UIView]()
     private var dynamicCellsVisibilities = [Bool]()
     
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -299,20 +317,31 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         self.sendMode = sendMode
         
         // Update cells' visibilities
-        var labelsToShow: [UILabel]
+        var visibleCellSubviews: [UIView]
         switch sendMode {
         case .single, .alternatingSingle:
-            labelsToShow = [codeVersionLabel, codeECLLabel]
+            visibleCellSubviews = [codeVersionLabel, codeECLLabel]
         case .nested:
-            labelsToShow = [largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel]
+            visibleCellSubviews = [largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel, sizeRatioTextField]
         }
                 
         guard dynamicCellsVisibilities.count > 0 else { return }
-        for (index, label) in dynamicCellLabels.enumerated() {
-            dynamicCellsVisibilities[index] = labelsToShow.contains(label)
+        for (index, label) in dynamicCellSubviews.enumerated() {
+            dynamicCellsVisibilities[index] = visibleCellSubviews.contains(label)
         }
         
         tableView.beginUpdates()
         tableView.endUpdates()
+    }
+}
+
+extension UIViewController {
+    func dismissKeyboardWhenTapped() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
     }
 }

@@ -96,6 +96,7 @@ final class SendViewController: UIViewController {
     var codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
     var largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 18, errorCorrectionLevel: .quartile)!
     var smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13, errorCorrectionLevel: .low)!
+    var smallerCodeSideLengthRatio = 0.3
     private(set) var currentFrameIndex = 0
     
     private func startDisplayingDataQRCodeImages() {
@@ -160,7 +161,7 @@ final class SendViewController: UIViewController {
             dataCodeImages = codeGenerator.generateQRCodes(forData: messageData, correctionLevel: .low, sideLength: sideLength, maxPacketSize: self.codeMaxPacketSize)
             frameCount = dataCodeImages!.count
         case .nested:
-            (dataCodeImages, frameCount) = codeGenerator.generateNestedQRCodes(forData: messageData, largerCodeMaxPacketSize: largerCodeMaxPacketSize, smallerCodeMaxPacketSize: smallerCodeMaxPacketSize, smallerCodeSideLengthRatio: 0.4, sideLength: sideLength)
+            (dataCodeImages, frameCount) = codeGenerator.generateNestedQRCodes(forData: messageData, largerCodeMaxPacketSize: largerCodeMaxPacketSize, smallerCodeMaxPacketSize: smallerCodeMaxPacketSize, smallerCodeSideLengthRatio: smallerCodeSideLengthRatio, sideLength: sideLength)
         }
         
         let fileSize = messageData.count
