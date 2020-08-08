@@ -10,16 +10,21 @@ import Foundation
 
 struct MetadataPacket {
     
-    let identifier: UInt32 = 0x55555555 // 0b01010101...
-    var flagBits: UInt32 // reserved
-    var numberOfFrames: UInt32
-    var fileSize: UInt32 // in bytes
+    static let identifierConstant: UInt32 = 0x55555555 // 0b01010101...
+    static let fileNameEncoding: String.Encoding = .utf8
     
-    let fileNameEncoding: String.Encoding = .utf8
-    var fileNameData: Data // encoded in UTF-8
+    var identifier: UInt32 = MetadataPacket.identifierConstant
+    var flagBits: UInt32 = 0
+    var numberOfFrames: UInt32 = 0
+    var fileSize: UInt32 = 0
+    
+    private var fileNameData = Data()
     var fileName: String? {
-        return String(bytes: fileNameData, encoding: fileNameEncoding)
+        return String(bytes: fileNameData, encoding: MetadataPacket.fileNameEncoding)
     }
+    
+    private let archiver = BinaryArchiver()
+    private let unarchiver = BinaryUnarchiver()
     
     // MARK: - Initializers
     
@@ -34,57 +39,33 @@ struct MetadataPacket {
         self.flagBits = flagBits
         self.numberOfFrames = numberOfFrames
         self.fileSize = fileSize
-        guard let fileNameData = fileName.data(using: fileNameEncoding) else { return nil }
+        guard let fileNameData = fileName.data(using: MetadataPacket.fileNameEncoding) else { return nil }
         self.fileNameData = fileNameData
     }
     
     init?(archive: Data) {
-        var bytesRead = 0
         
-        let identifierByteCount = MemoryLayout<UInt32>.size
-        let identifierData = archive[bytesRead..<bytesRead + identifierByteCount]
-        let identifier = identifierData.withUnsafeBytes { $0.load(as: UInt32.self) }
-        guard identifier == self.identifier else { return nil }
-        bytesRead += identifierByteCount
+        unarchiver.loadArchive(from: archive)
+        unarchiver.unarchive(to: &identifier)
+        unarchiver.unarchive(to: &flagBits)
+        unarchiver.unarchive(to: &numberOfFrames)
+        unarchiver.unarchive(to: &fileSize)
+        unarchiver.unarchive(to: &fileNameData)
         
-        let flagBitsByteCount = MemoryLayout<UInt32>.size
-        let flagBitsData = archive[bytesRead..<bytesRead + flagBitsByteCount]
-        self.flagBits = flagBitsData.withUnsafeBytes { $0.load(as: UInt32.self) }
-        bytesRead += flagBitsByteCount
-        
-        let numberOfFramesByteCount = MemoryLayout<UInt32>.size
-        let numberOfFramesData = archive[bytesRead..<bytesRead + numberOfFramesByteCount]
-        self.numberOfFrames = numberOfFramesData.withUnsafeBytes { $0.load(as: UInt32.self) }
-        bytesRead += numberOfFramesByteCount
-        
-        let fileSizeByteCount = MemoryLayout<UInt32>.size
-        let fileSizeData = archive[bytesRead..<bytesRead + fileSizeByteCount]
-        self.fileSize = fileSizeData.withUnsafeBytes { $0.load(as: UInt32.self) }
-        bytesRead += fileSizeByteCount
-        
-        self.fileNameData = archive[bytesRead...]
+        // Verify identifier
+        guard identifier == MetadataPacket.identifierConstant else { return nil }
     }
     
     // MARK: - Methods
     
     func archive() -> Data {
         
-        var data = Data()
-        
-        var identifier = self.identifier
-        data += Data(bytes: &identifier, count: MemoryLayout<UInt32>.size)
-        
-        var flagBits = self.flagBits
-        data += Data(bytes: &flagBits, count: MemoryLayout<UInt32>.size)
-        
-        var numberOfFrames = self.numberOfFrames
-        data += Data(bytes: &numberOfFrames, count: MemoryLayout<UInt32>.size)
-        
-        var fileSize = self.fileSize
-        data += Data(bytes: &fileSize, count: MemoryLayout<UInt32>.size)
-        
-        data += fileNameData
-        
-        return data
+        archiver.archive(identifier)
+        archiver.archive(flagBits)
+        archiver.archive(numberOfFrames)
+        archiver.archive(fileSize)
+        archiver.archive(fileNameData)
+        let archive = archiver.collectArchive()
+        return archive
     }
 }
