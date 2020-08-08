@@ -68,4 +68,29 @@ struct MetadataPacket {
         let archive = archiver.collectArchive()
         return archive
     }
+    
+    // MARK: - Flag Constants
+    
+    /*
+     
+     The flags listed below are used during calibration in duplex mode.
+     These values should be put in the `flagBits` property of the packet.
+     Here, a "reply" is a quick flash emitted by the receiver.
+     
+     */
+    
+    enum Flag {
+        /// This flag carries no meaning, and should be ignored.
+        static let voidFlag: UInt32 =    0x00000000
+        
+        /// Use this flag to inform the receiver not to reply this frame.
+        static let noReplyFlag: UInt32 = 0x55555555  // 0b01010101...
+        
+        /// Use this flag to inform the receiver to reply this frame.
+        static let replyFlag: UInt32 =   0xAAAAAAAA  // 0b10101010...
+        
+        /// Use this flag to inform the receiver that the sender has collected
+        /// enough information, and will start sending the data packets soon.
+        static let readyFlag: UInt32 =   0xFFFFFFFF  // 0b11111111...
+    }
 }
