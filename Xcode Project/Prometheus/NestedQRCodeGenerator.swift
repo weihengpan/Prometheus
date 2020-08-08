@@ -19,7 +19,7 @@ class NestedQRCodeGenerator {
     
     func generateNestedQRCodes(forData data: Data, largerCodeMaxPacketSize: Int, smallerCodeMaxPacketSize: Int, smallerCodeSideLengthRatio: Double, sideLength outputSideLength: CGFloat) -> ([CIImage], Int) {
         
-        let unusableWidth = DataPacket.sizeExceptPayload
+        let unusableWidth = DataPacket.headerSize
         let largerCodeMaxPayloadSize = largerCodeMaxPacketSize - unusableWidth
         let smallerCodeMaxPayloadSize = smallerCodeMaxPacketSize - unusableWidth
         let dataSize = data.count
@@ -122,7 +122,7 @@ class NestedQRCodeGenerator {
     
     func generateUnitSizedQRCodes(forData data: Data, correctionLevel: ErrorCorrectionLevel, maxPacketSize: Int) -> [CIImage] {
         
-        let unusableWidth = DataPacket.sizeExceptPayload
+        let unusableWidth = DataPacket.headerSize
         let maxPayloadSize = maxPacketSize - unusableWidth
         let dataSize = data.count
         

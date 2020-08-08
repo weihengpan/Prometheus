@@ -7,14 +7,15 @@
 //
 
 import UIKit
+import AVFoundation
 
 class SendSettingsViewController: UITableViewController, UIPickerViewDataSource, UIPickerViewDelegate {
     
-    typealias SendMode = SendViewController.SendMode
+    typealias CodeType = SendViewController.CodeType
     typealias ErrorCorrectionLevel = QRCodeInformation.ErrorCorrectionLevel
     
     @UserDefaultEnum(key: "sendMode", defaultValue: .single)
-    var sendMode: SendViewController.SendMode
+    var sendMode: SendViewController.CodeType
     
     @UserDefault(key: "sendFrameRate", defaultValue: 15.0)
     var sendFrameRate: Double
@@ -40,6 +41,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @UserDefault(key: "sizeRatio", defaultValue: 0.3)
     var sizeRatio: Double
     
+    @UserDefault(key: "senderUsesDuplex", defaultValue: false)
+    var usesDuplexMode: Bool
+    
     // MARK: - IB Outlets
     
     @IBOutlet weak var sendModeLabel: UILabel!
@@ -47,6 +51,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     
     @IBOutlet weak var frameRateLabel: UILabel!
     @IBOutlet weak var frameRateStepper: UIStepper!
+    
+    @IBOutlet weak var transmissionModeSegmentedControl: UISegmentedControl!
     
     @IBOutlet weak var codeVersionLabel: UILabel!
     @IBOutlet weak var codeECLLabel: UILabel!
@@ -79,14 +85,16 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         dynamicCellSubviews = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel, sizeRatioTextField]
         dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellSubviews.count))
         
-        setupSendModeLabelAndPickerView()
+        setupCodeTypeLabelAndPickerView()
         setupFrameRateStepper()
+        setupTransmissionModeSegmentedControl()
         setupVersionStepper(codeVersionStepper)
         setupVersionStepper(largerCodeVersionStepper)
         setupVersionStepper(smallerCodeVersionStepper)
         setupECLStepper(codeECLStepper)
         setupECLStepper(largerCodeECLStepper)
         setupECLStepper(smallerCodeECLStepper)
+        setupSizeRatioTextField()
         
         dismissKeyboardWhenTapped()
     }
@@ -96,6 +104,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             
             sendVC.sendMode = self.sendMode
             sendVC.sendFrameRate = self.sendFrameRate
+            sendVC.usesDuplexMode = self.usesDuplexMode
             sendVC.codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.codeVersion, errorCorrectionLevel: self.codeECL)!
             sendVC.largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.largerCodeVersion, errorCorrectionLevel: self.largerCodeECL)!
             sendVC.smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.smallerCodeVersion, errorCorrectionLevel: self.smallerCodeECL)!
@@ -105,7 +114,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     
     // MARK: - UI Management
         
-    private func setupSendModeLabelAndPickerView() {
+    private func setupCodeTypeLabelAndPickerView() {
         
         // Set label text
         let sendMode = self.sendMode
@@ -115,7 +124,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         sendModePickerView.isHidden = true
         
         // Select row
-        guard let row = SendMode.allCases.firstIndex(of: sendMode) else { return }
+        guard let row = CodeType.allCases.firstIndex(of: sendMode) else { return }
         sendModePickerView.selectRow(row, inComponent: 0, animated: false)
         pickerView(sendModePickerView, didSelectRow: row, inComponent: 0)
         
@@ -129,6 +138,15 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         frameRateStepper.value = self.sendFrameRate
         frameRateStepperValueChanged(frameRateStepper)
         
+    }
+    
+    private func setupTransmissionModeSegmentedControl() {
+        
+        let wideCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)!
+        if wideCamera.hasTorch == false {
+            transmissionModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
+        }
+        transmissionModeSegmentedControl.selectedSegmentIndex = usesDuplexMode ? 1 : 0
     }
     
     private func setupVersionStepper(_ stepper: UIStepper) {
@@ -174,7 +192,12 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         eclStepperValueChanged(stepper)
     }
     
-    private func changeSendModePickerViewVisibility(to isVisible: Bool) {
+    private func setupSizeRatioTextField() {
+        
+        sizeRatioTextField.text = String(sizeRatio)
+    }
+    
+    private func changeCodeTypePickerViewVisibility(to isVisible: Bool) {
         
         self.sendModePickerView.isHidden = !isVisible
         UIView.animate(withDuration: 0.3) {
@@ -194,6 +217,18 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let valueString = String(Int(value))
         frameRateLabel.text = valueString
         self.sendFrameRate = value
+    }
+    
+    @IBAction func transmissionModeSegmentedControlValueChanged(_ sender: UISegmentedControl) {
+        
+        switch sender.selectedSegmentIndex {
+        case 0:
+            usesDuplexMode = false
+        case 1:
+            usesDuplexMode = true
+        default:
+            break
+        }
     }
     
     @objc private func versionStepperValueChanged(_ sender: UIStepper) {
@@ -276,7 +311,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if sendModeLabel.isDescendant(of: cell) {
-            changeSendModePickerViewVisibility(to: sendModePickerView.isHidden)
+            changeCodeTypePickerViewVisibility(to: sendModePickerView.isHidden)
         }
         
         if startButton.isDescendant(of: cell) {
@@ -293,14 +328,14 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     }
     
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        return SendMode.allCases.count
+        return CodeType.allCases.count
     }
     
     // MARK: - Picker View Delegate Methods
         
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
         
-        let sendMode = SendMode.allCases[row]
+        let sendMode = CodeType.allCases[row]
         return sendMode.readableName
     }
     
@@ -310,7 +345,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         
         // Update label
-        let sendMode = SendMode.allCases[row]
+        let sendMode = CodeType.allCases[row]
         sendModeLabel.text = sendMode.readableName
 
         // Persist value
@@ -332,16 +367,5 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
         tableView.beginUpdates()
         tableView.endUpdates()
-    }
-}
-
-extension UIViewController {
-    func dismissKeyboardWhenTapped() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        view.addGestureRecognizer(tapGesture)
-    }
-    
-    @objc func dismissKeyboard() {
-        view.endEditing(true)
     }
 }
