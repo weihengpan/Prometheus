@@ -47,7 +47,7 @@ class HistogramFilter {
         // Convert image to grayscale
         monochromeFilter.inputImage = inputImage
         guard let inputImage = monochromeFilter.outputImage else {
-            fatalError("Failed to create output image from luma filter.")
+            fatalError("Failed to create output image from monochrome filter.")
         }
         
         // Create command buffer
@@ -115,7 +115,7 @@ class HistogramFilter {
         let histogram = Array(bufferPointer)
         
         // Only return the histogram associated with the red channel (luma values)
-        let lumaHistogram = Array(histogram.prefix(upTo: self.numberOfHistogramEntries))
-        return lumaHistogram
+        let monochromeHistogram = Array(histogram.prefix(upTo: self.numberOfHistogramEntries))
+        return monochromeHistogram
     }
 }
