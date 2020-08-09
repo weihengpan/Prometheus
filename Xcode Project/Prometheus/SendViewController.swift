@@ -155,7 +155,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 
             case .calibrationFinishedAndWaitingForStart:
                 metadataCodeDisplaySubscription = nil
-                stopSession()
                 displayStaticMetadataCodeImage()
                 
             case .sending:
@@ -340,10 +339,11 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         if usesDuplexMode {
                         
             // Generate request metadata packet
-            guard let requestMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.reply,
-                                                      numberOfFrames: UInt32(frameCount),
-                                                      fileSize: UInt32(fileSize),
-                                                      fileName: fullFileName)
+            guard let requestMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.request,
+                                                             numberOfFrames: UInt32(frameCount),
+                                                             frameRate: UInt32(sendFrameRate),
+                                                             fileSize: UInt32(fileSize),
+                                                             fileName: fullFileName)
                 else {
                     fatalError("[SendVC] Failed to create metadata packet.")
             }
@@ -352,6 +352,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             // Generate ready metadata packet
             guard let readyMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.ready,
                                                            numberOfFrames: UInt32(frameCount),
+                                                           frameRate: UInt32(sendFrameRate),
                                                            fileSize: UInt32(fileSize),
                                                            fileName: fullFileName)
                 else {
@@ -364,6 +365,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             
             guard let metadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.void,
                                                       numberOfFrames: UInt32(frameCount),
+                                                      frameRate: UInt32(sendFrameRate),
                                                       fileSize: UInt32(fileSize),
                                                       fileName: fullFileName)
                 else {
@@ -418,7 +420,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var transmissionDelaySamples = [Int]()
     
     /// The minimum waiting time between the receipt of a reply and the next request.
-    private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.3
+    private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.2
     
     /// Whether enough time (equal to `minimumTimeToWaitUntilNextRequest`) has passed since the receipt of a reply.
     private var hasFinishedWaiting = true

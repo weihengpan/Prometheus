@@ -563,8 +563,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
             
             // Reply with torch
-            if packet.flagBits == MetadataPacket.Flag.reply {
-                turnOnTorch(for: 1 / videoFrameRate / 2.0)
+            if packet.flagBits == MetadataPacket.Flag.request {
+                turnOnTorch(for: 1 / TimeInterval(latestMetadataPacket.frameRate))
             }
             
             // Update state

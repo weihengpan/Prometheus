@@ -16,6 +16,7 @@ struct MetadataPacket {
     var identifier: UInt32 = MetadataPacket.identifierConstant
     var flagBits: UInt32 = 0
     var numberOfFrames: UInt32 = 0
+    var frameRate: UInt32 = 0
     var fileSize: UInt32 = 0
     private var fileNameData = Data()
     
@@ -23,10 +24,8 @@ struct MetadataPacket {
         switch flagBits {
         case Flag.void:
             return "void"
-        case Flag.noReply:
-            return "noReply"
-        case Flag.reply:
-            return "reply"
+        case Flag.request:
+            return "request"
         case Flag.ready:
             return "ready"
         default:
@@ -43,16 +42,18 @@ struct MetadataPacket {
     
     // MARK: - Initializers
     
-    init(flagBits: UInt32, numberOfFrames: UInt32, fileSize: UInt32, fileNameData: Data) {
+    init(flagBits: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileNameData: Data) {
         self.flagBits = flagBits
         self.numberOfFrames = numberOfFrames
+        self.frameRate = frameRate
         self.fileSize = fileSize
         self.fileNameData = fileNameData
     }
     
-    init?(flagBits: UInt32, numberOfFrames: UInt32, fileSize: UInt32, fileName: String) {
+    init?(flagBits: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileName: String) {
         self.flagBits = flagBits
         self.numberOfFrames = numberOfFrames
+        self.frameRate = frameRate
         self.fileSize = fileSize
         guard let fileNameData = fileName.data(using: MetadataPacket.fileNameEncoding) else { return nil }
         self.fileNameData = fileNameData
@@ -64,6 +65,7 @@ struct MetadataPacket {
         unarchiver.unarchive(to: &identifier)
         unarchiver.unarchive(to: &flagBits)
         unarchiver.unarchive(to: &numberOfFrames)
+        unarchiver.unarchive(to: &frameRate)
         unarchiver.unarchive(to: &fileSize)
         unarchiver.unarchive(to: &fileNameData)
         
@@ -78,6 +80,7 @@ struct MetadataPacket {
         archiver.archive(identifier)
         archiver.archive(flagBits)
         archiver.archive(numberOfFrames)
+        archiver.archive(frameRate)
         archiver.archive(fileSize)
         archiver.archive(fileNameData)
         let archive = archiver.collectArchive()
@@ -98,14 +101,14 @@ struct MetadataPacket {
         /// This flag carries no meaning, and should be ignored.
         static let void: UInt32 =    0x00000000
         
-        /// Use this flag to inform the receiver not to reply this frame.
-        static let noReply: UInt32 = 0x55555555  // 0b01010101...
-        
         /// Use this flag to inform the receiver to reply this frame.
-        static let reply: UInt32 =   0xAAAAAAAA  // 0b10101010...
+        static let request: UInt32 =   0xAAAAAAAA  // 0b10101010...
         
         /// Use this flag to inform the receiver that the sender has collected
         /// enough information, and will start sending the data packets soon.
-        static let ready: UInt32 =   0xFFFFFFFF  // 0b11111111...
+        static let ready: UInt32 =   0x55555555  // 0b01010101...
+        
+        /// There is no use for this value yet.
+        //static let noReply: UInt32 = 0xFFFFFFFF  // 0b11111111...
     }
 }
