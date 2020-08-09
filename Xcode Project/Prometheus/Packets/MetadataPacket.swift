@@ -17,11 +17,26 @@ struct MetadataPacket {
     var flagBits: UInt32 = 0
     var numberOfFrames: UInt32 = 0
     var fileSize: UInt32 = 0
-    
     private var fileNameData = Data()
+    
+    var flagString: String {
+        switch flagBits {
+        case Flag.void:
+            return "void"
+        case Flag.noReply:
+            return "noReply"
+        case Flag.reply:
+            return "reply"
+        case Flag.ready:
+            return "ready"
+        default:
+            return "unknown"
+        }
+    }
     var fileName: String? {
         return String(bytes: fileNameData, encoding: MetadataPacket.fileNameEncoding)
     }
+    
     
     private let archiver = BinaryArchiver()
     private let unarchiver = BinaryUnarchiver()

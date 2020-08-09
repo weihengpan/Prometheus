@@ -16,7 +16,7 @@ class DuplexViewController: UIViewController, AVCaptureVideoDataOutputSampleBuff
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        sessionQueue.async {
+        sessionQueue.async { 
             self.setupSession()
             self.startSession()
             self.lockCameraExposure(after: 0.5)
@@ -89,8 +89,10 @@ class DuplexViewController: UIViewController, AVCaptureVideoDataOutputSampleBuff
         self.frontCamera = frontCamera
         do {
             try frontCamera.lockForConfiguration()
-            frontCamera.automaticallyAdjustsVideoHDREnabled = false
-            frontCamera.isVideoHDREnabled = false
+            if frontCamera.activeFormat.isVideoHDRSupported {
+                frontCamera.automaticallyAdjustsVideoHDREnabled = false
+                frontCamera.isVideoHDREnabled = false
+            }
             frontCamera.unlockForConfiguration()
         } catch let error {
             print("Failed to lock front camera for configuration, error: \(error)")

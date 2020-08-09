@@ -32,7 +32,7 @@ final class MetalRenderView : MTKView {
         isOpaque = false
         clearColor = MTLClearColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
         
-        isPaused = false
+        isPaused = true
         enableSetNeedsDisplay = false
     }
     
@@ -41,13 +41,10 @@ final class MetalRenderView : MTKView {
         return self.device!.makeCommandQueue()
         }()
     
-    private lazy var ciContext: CIContext = {
-        [unowned self] in
+    private lazy var ciContext: CIContext = { [unowned self] in
         return CIContext(mtlDevice: self.device!,
-                         options: [
-                            .cacheIntermediates: false
-        ])
-        }()
+                         options: [.cacheIntermediates: false])
+    }()
     
     var image: CIImage? {
         didSet {
@@ -67,9 +64,7 @@ final class MetalRenderView : MTKView {
                                               commandBuffer: commandBuffer) { () -> MTLTexture in
                                                 return self.currentDrawable!.texture
         }
-        
-        // Start render task
-        
+                
         // Render image
         try! ciContext.startTask(toRender: image, from: image.extent, to: destination, at: image.extent.origin)
         

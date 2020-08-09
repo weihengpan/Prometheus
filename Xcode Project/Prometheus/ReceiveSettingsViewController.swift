@@ -23,6 +23,9 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     @UserDefaultEnum(key: "decodeMode", defaultValue: .liveDecode)
     var decodeMode: ReceiveViewController.DecodeMode
     
+    @UserDefault(key: "receiverUsesDuplexMode", defaultValue: false)
+    var usesDuplexMode: Bool
+    
     // MARK: - IB Outlets
     
     @IBOutlet weak var cameraSegmentedControl: UISegmentedControl!
@@ -31,6 +34,8 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     @IBOutlet weak var videoFormatPickerView: UIPickerView!
     
     @IBOutlet weak var decodeModeSegmentedControl: UISegmentedControl!
+    
+    @IBOutlet weak var transmissionModeSegmentedControl: UISegmentedControl!
     
     @IBOutlet weak var startButton: UIButton!
     
@@ -49,6 +54,14 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         setupCameraSegmentedControl()
         setupVideoFormatLabelAndPickerView()
         setupDecodeModeSegmentedControl()
+        setupTransmissionModeSegmentedControl()
+        
+        // Load currently selected format
+        selectedVideoFormat = availableVideoFormats[videoFormatPickerViewSelectedRow]
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -57,6 +70,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
                         
             viewController.cameraType = self.cameraType
             viewController.decodeMode = self.decodeMode
+            viewController.usesDuplexMode = self.usesDuplexMode
             if let videoFormat = selectedVideoFormat {
                 viewController.videoFormat = videoFormat
             }
@@ -105,6 +119,17 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         decodeModeSegmentedControl.selectedSegmentIndex = index
         decodeModeSegmentedControl.addTarget(self, action: #selector(decodeModeSegmentedControlValueChanged(_:)), for: .valueChanged)
         decodeModeSegmentedControlValueChanged(decodeModeSegmentedControl)
+    }
+    
+    private func setupTransmissionModeSegmentedControl() {
+        
+        let wideCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)!
+        if wideCamera.hasTorch == false {
+            transmissionModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
+            transmissionModeSegmentedControl.selectedSegmentIndex = 0
+            return
+        }
+        transmissionModeSegmentedControl.selectedSegmentIndex = usesDuplexMode ? 1 : 0
     }
     
     private func changeVideoFormatPickerViewVisibility(to isVisible: Bool) {
@@ -173,6 +198,18 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         let decodeMode = DecodeMode.allCases[index]
         self.decodeMode = decodeMode
         
+    }
+    
+    @IBAction func transmissionModeSegmentedControlValueChanged(_ sender: UISegmentedControl) {
+        
+        switch sender.selectedSegmentIndex {
+        case 0:
+            usesDuplexMode = false
+        case 1:
+            usesDuplexMode = true
+        default:
+            break
+        }
     }
     
     // MARK: - Table View Delegate Methods
@@ -260,6 +297,7 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
     }
     
     private func videoFormatDescription(of format: AVCaptureDevice.Format) -> String {
+        
         let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
         let frameRate = format.videoSupportedFrameRateRanges[0].maxFrameRate
         

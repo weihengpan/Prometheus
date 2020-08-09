@@ -7,9 +7,10 @@
 //
 
 import UIKit
+import AVFoundation
 import Combine
 
-final class SendViewController: UIViewController {
+final class SendViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate {
     
     enum CodeType: Int, CaseIterable {
         case single = 0
@@ -44,6 +45,8 @@ final class SendViewController: UIViewController {
     
     @IBOutlet weak var startButton: UIButton!
     
+    @IBOutlet weak var previewView: PreviewView!
+    
     @IBAction func startButtonDidTouchUpInside(_ sender: Any) {
         proceedToNextStateAndUpdateUI()
     }
@@ -59,26 +62,48 @@ final class SendViewController: UIViewController {
         UIApplication.shared.isIdleTimerDisabled = true
         
         proceedToNextStateAndUpdateUI(updateUIOnly: true)
-    } 
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        guard let session = session else { return }
+        if usesDuplexMode && session.isRunning == false {
+            startSession()
+        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        guard let session = session else { return }
+        if usesDuplexMode && session.isRunning {
+            stopSession()
+        }
+    }
     
     override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
         
         // Wait until all leaf subviews have finished layout
         DispatchQueue.main.async {
             if self.hasGeneratedCodes == false {
+                
+                let scale = UIScreen.main.scale
                 var sideLength: CGFloat
                 switch self.sendMode {
-                    
+                
                 case .single, .nested:
-                    sideLength = self.singleRenderView.frame.width * UIScreen.main.scale
+                    sideLength = self.singleRenderView.frame.width * scale
                     
                 case .alternatingSingle:
-                    sideLength = self.topRenderView.frame.width * UIScreen.main.scale
+                    sideLength = self.topRenderView.frame.width * scale
                 }
                 
-                self.generationQueue.async {
-                    self.generateCodeImagesAndDisplayMetadataCode(renderViewSideLength: sideLength)
+                self.sessionQueue.async {
+                    self.generateCodeImages(renderViewSideLength: sideLength)
+                    self.setupSession()
+                    self.startSession()
+                    self.lockCameraExposure(after: 0.5)
                 }
                 self.hasGeneratedCodes = true
             }
@@ -117,20 +142,21 @@ final class SendViewController: UIViewController {
             switch state {
                 
             case .generatingCodes:
-                stopDisplayingDataCodeImages()
+                clearRenderViewImages()
                 
             case .waitingForManualStart:
                 
                 if usesDuplexMode == false {
-                    displayMetadataCodeImage()
+                    displayStaticMetadataCodeImage()
                 }
                 
             case .calibrating:
-                startDisplayingMetadataCodeImages()
+                break
                 
             case .calibrationFinishedAndWaitingForStart:
-                /// - TODO: Delay and start transmission
-                break
+                metadataCodeDisplaySubscription = nil
+                stopSession()
+                displayStaticMetadataCodeImage()
                 
             case .sending:
                 startDisplayingDataCodeImages()
@@ -167,11 +193,15 @@ final class SendViewController: UIViewController {
         DispatchQueue.main.async {
             self.startButton.setTitle(startButtonTitle, for: .normal)
             self.startButton.isEnabled = startButtonIsEnabled
+            
+            if self.state == .calibrationFinishedAndWaitingForStart {
+                self.previewView.isHidden = true
+            }
         }
         
     }
 
-    // MARK: - Code Display
+    // MARK: - Code Generation & Display
     
     var sendMode: CodeType = .nested
     var usesDuplexMode: Bool = false
@@ -190,35 +220,39 @@ final class SendViewController: UIViewController {
     var smallerCodeSideLengthRatio = 0.3
     
     private let codeGenerator = NestedQRCodeGenerator()
-    private let generationQueue = DispatchQueue(label: "generationQueue", qos: .userInitiated)
     
     /* State variables */
     
     private(set) var dataPacketFrameIndex = 0
     private(set) var metadataPacketFrameIndex = 0
     
-    /// For simplex mode only.
     private var metadataCodeImage: CIImage?
     
-    /// For duplex mode only.
-    private var replyAndNoReplyMetadataCodeImages = [CIImage]()
-    private var readyMetadataCodeImage: CIImage?
+    // Metadata code images used during calibration. For duplex mode only.
+    private var requestMetadataCodeImage: CIImage!
+    private var readyMetadataCodeImage: CIImage!
     
     private var dataCodeImages = [CIImage]()
     
-    /// Only used in duplex mode.
+    // For duplex mode only.
     private var metadataCodeDisplaySubscription: AnyCancellable?
     
     private var dataCodeDisplaySubscription: AnyCancellable?
     
-    private func displayMetadataCodeImage() {
+    private func displayStaticMetadataCodeImage() {
         
-        switch self.sendMode {
-        case .single, .nested:
-            self.singleRenderView.image = self.metadataCodeImage
-        case .alternatingSingle:
-            self.topRenderView.image = self.metadataCodeImage
-            self.bottomRenderView.image = self.metadataCodeImage
+        let image = usesDuplexMode ? readyMetadataCodeImage : metadataCodeImage
+        
+        DispatchQueue.main.async {
+            switch self.sendMode {
+                
+            case .single, .nested:
+                self.singleRenderView.image = image
+                
+            case .alternatingSingle:
+                self.topRenderView.image = image
+                self.bottomRenderView.image = image
+            }
         }
     }
     
@@ -260,49 +294,13 @@ final class SendViewController: UIViewController {
         guard let subscription = dataCodeDisplaySubscription else { return }
         subscription.cancel()
         dataCodeDisplaySubscription = nil
-            
+        
         dataPacketFrameIndex = 0
         
-        clearPreviewViewImages()
+        clearRenderViewImages()
     }
     
-    private func startDisplayingMetadataCodeImages() {
-        
-        metadataCodeDisplaySubscription = Timer.publish(every: 1.0 / sendFrameRate, on: .current, in: .common)
-            .autoconnect()
-            .sink { _ in
-                
-                let index = self.metadataPacketFrameIndex
-                let nextImage = self.replyAndNoReplyMetadataCodeImages[index]
-                
-                DispatchQueue.main.async {
-                    switch self.sendMode {
-                        
-                    case .single, .nested:
-                        self.singleRenderView.image = nextImage
-                        
-                    case .alternatingSingle:
-                        self.topRenderView.image = nextImage
-                        self.bottomRenderView.image = nextImage
-                    }
-                }
-                
-                self.metadataPacketFrameIndex = (self.metadataPacketFrameIndex + 1) % self.replyAndNoReplyMetadataCodeImages.count
-        }
-    }
-    
-    private func stopDisplayingMetadataCodeImages() {
-        
-        guard let subscription = metadataCodeDisplaySubscription else { return }
-        subscription.cancel()
-        metadataCodeDisplaySubscription = nil
-        
-        metadataPacketFrameIndex = 0
-        
-        clearPreviewViewImages()
-    }
-    
-    private func generateCodeImagesAndDisplayMetadataCode(renderViewSideLength sideLength: CGFloat) {
+    private func generateCodeImages(renderViewSideLength sideLength: CGFloat) {
         
         /// - TODO: select file from Files.app
         let fileName = "Alice's Adventures in Wonderland"
@@ -340,37 +338,27 @@ final class SendViewController: UIViewController {
         let fullFileName = fileName + "." + fileExtension
         
         if usesDuplexMode {
-            
-            let flags: [UInt32] = [
-                MetadataPacket.Flag.noReply,
-                MetadataPacket.Flag.noReply,
-                MetadataPacket.Flag.reply
-            ]
-            var metadataPackets = [MetadataPacket]()
-            for flag in flags {
-                guard let metadataPacket = MetadataPacket(flagBits: flag,
-                                                          numberOfFrames: UInt32(frameCount),
-                                                          fileSize: UInt32(fileSize),
-                                                          fileName: fullFileName)
-                    else {
-                        fatalError("[SendVC] Failed to create metadata packet.")
-                }
-                metadataPackets.append(metadataPacket)
-            }
-            replyAndNoReplyMetadataCodeImages = metadataPackets.map { packet in
-                self.codeGenerator.generateQRCode(forMetadataPacket: packet,
-                                                  sideLength: sideLength)
-            }
-            
-            guard let readyMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.ready,
+                        
+            // Generate request metadata packet
+            guard let requestMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.reply,
                                                       numberOfFrames: UInt32(frameCount),
                                                       fileSize: UInt32(fileSize),
                                                       fileName: fullFileName)
                 else {
                     fatalError("[SendVC] Failed to create metadata packet.")
             }
+            requestMetadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: requestMetadataPacket, sideLength: sideLength)
+            
+            // Generate ready metadata packet
+            guard let readyMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.ready,
+                                                           numberOfFrames: UInt32(frameCount),
+                                                           fileSize: UInt32(fileSize),
+                                                           fileName: fullFileName)
+                else {
+                    fatalError("[SendVC] Failed to create metadata packet.")
+            }
             readyMetadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: readyMetadataPacket,
-                                                                                     sideLength: sideLength)
+                                                                  sideLength: sideLength)
             
         } else {
             
@@ -389,12 +377,252 @@ final class SendViewController: UIViewController {
         proceedToNextStateAndUpdateUI()
     }
     
-    private func clearPreviewViewImages() {
-        
+    private func clearRenderViewImages() {
+                
+        let clearImage: CIImage = .clear
         DispatchQueue.main.async {
-            self.singleRenderView.image = nil
-            self.topRenderView.image = nil
-            self.bottomRenderView.image = nil
+            self.singleRenderView.image = clearImage
+            self.topRenderView.image = clearImage
+            self.bottomRenderView.image = clearImage
+        }
+    }
+    
+    // MARK: - Video Processing & Calibration
+    
+    private let dataOutputQueue = DispatchQueue(label: "dataOutputQueue")
+    private let histogramFilter = HistogramFilter()
+    
+    /*
+     
+     State variables
+     
+     */
+    
+    /// Whether the reply to the calibration request has been received.
+    ///
+    /// When it is `true`, the sender will send out a new request during the next frame.
+    private var hasReceivedReply = true
+        
+    /// The number of white pixels in the last frame.
+    private var lastPixelCount: Int!
+    
+    /// Number of frames that has elapsed since the calibration request was sent.
+    private var transmissionDelay = 0
+    
+    /// Samples of the difference in the number of white pixels in successive frames.
+    ///
+    /// Only samples of rising edges will be collected, so the elements are all positive.
+    private var pixelCountDeltaSamples = [Int]()
+    
+    /// Samples of `transmissionDelay`.
+    private var transmissionDelaySamples = [Int]()
+    
+    /// The minimum waiting time between the receipt of a reply and the next request.
+    private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.3
+    
+    /// Whether enough time (equal to `minimumTimeToWaitUntilNextRequest`) has passed since the receipt of a reply.
+    private var hasFinishedWaiting = true
+    
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        
+        guard state == .calibrating else { return }
+        
+        // Receive calibration reply
+        guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+        let inputImage = CIImage(cvImageBuffer: imageBuffer)
+        let histogram = histogramFilter.calculateHistogram(of: inputImage)
+        let currentPixelCount = Int(histogram.last!)
+        
+        if let lastPixelCount = lastPixelCount, hasReceivedReply == false {
+            
+            let pixelCountDelta = currentPixelCount - lastPixelCount
+            let pixelCountRatioThreshold = 0.01 // empirical value
+            let framePixelCount = pixelCount(of: frontCamera.activeFormat)
+            
+            // Detect whether the number of white pixels have suddenly increased i.e. the torch was turned on
+            if Double(pixelCountDelta) >= Double(framePixelCount) * pixelCountRatioThreshold {
+                
+                hasReceivedReply = true
+                pixelCountDeltaSamples.append(pixelCountDelta)
+                transmissionDelaySamples.append(transmissionDelay)
+                print("[Calibration] Reply received.")
+                print("[Calibration] White pixel count delta: \(pixelCountDelta)")
+                print("[Calibration] Transmission delay: \(transmissionDelay)")
+                
+                hasFinishedWaiting = false
+                DispatchQueue.main.async {
+                    Timer.scheduledTimer(withTimeInterval: self.minimumTimeToWaitUntilNextRequest, repeats: false) { _ in
+                        self.hasFinishedWaiting = true
+                    }
+                }
+            }
+            
+            // Finish the calibration if enough samples have been collected
+            let numberOfSamplesNeeded = 10
+            if pixelCountDeltaSamples.count >= numberOfSamplesNeeded {
+                
+                let pixelCountDeltaSamplesInDouble = pixelCountDeltaSamples.map { Double($0) }
+                let pixelCountDeltaSamplesMean = pixelCountDeltaSamplesInDouble.average
+                let pixelCountDeltaSamplesStandardDeviation = pixelCountDeltaSamplesInDouble.standardDeviation
+                
+                let transmissionDelaySamplesInDouble = transmissionDelaySamples.map { Double($0) }
+                let transmissionDelaySamplesMean = transmissionDelaySamplesInDouble.average
+                let transmissionDelaySamplesStandardDeviation = transmissionDelaySamplesInDouble.standardDeviation
+                
+                print("[Calibration] Enough samples have been collected.")
+                
+                print("[Calibration] Pixel count delta samples: \(pixelCountDeltaSamples)")
+                print("[Calibration] Mean: \(pixelCountDeltaSamplesMean)")
+                print("[Calibration] Standard deviation: \(pixelCountDeltaSamplesStandardDeviation)")
+                
+                print("[Calibration] Transmission delay samples: \(transmissionDelaySamples)")
+                print("[Calibration] Mean: \(transmissionDelaySamplesMean)")
+                print("[Calibration] Standard deviation: \(transmissionDelaySamplesStandardDeviation)")
+
+                proceedToNextStateAndUpdateUI()
+                return
+            }
+        }
+        
+        // Send calibration request
+        if hasReceivedReply && hasFinishedWaiting {
+            
+            let image = requestMetadataCodeImage
+            DispatchQueue.main.async {
+                switch self.sendMode {
+                    
+                case .single, .nested:
+                    self.singleRenderView.image = image
+                    
+                case .alternatingSingle:
+                    self.topRenderView.image = image
+                    self.bottomRenderView.image = image
+                }
+            }
+            print("[Calibration] Request sent.")
+            
+            hasReceivedReply = false
+            transmissionDelay = 0 // Note that this will become 1 at the end of the method
+            
+            DispatchQueue.main.async {
+                Timer.scheduledTimer(withTimeInterval: 1 / self.sendFrameRate, repeats: false) { _ in
+                    self.clearRenderViewImages()
+                    print("images cleared in timer")
+                }
+            }
+            
+        }
+        
+        // Update state variables
+        transmissionDelay += 1
+        lastPixelCount = currentPixelCount
+    }
+    
+    func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        
+        guard state == .calibrating else { return }
+        
+        print("[SendVC] Warning: frame dropped")
+    }
+    
+    func pixelCount(of format: AVCaptureDevice.Format) -> Int {
+        
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+        let width = Int(dimensions.width)
+        let height = Int(dimensions.height)
+        return width * height
+    }
+    
+    // MARK: - Session Management
+    
+    private let sessionQueue = DispatchQueue(label: "sessionQueue")
+    
+    private var session: AVCaptureSession!
+    
+    private var frontCamera: AVCaptureDevice!
+    private let frontCameraVideoDataOutput = AVCaptureVideoDataOutput()
+    
+    private func setupSession() {
+        
+        session = AVCaptureSession()
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
+        session.sessionPreset = .hd1280x720
+        
+        // Set up preview layer
+        DispatchQueue.main.async {
+            self.previewView.previewLayer.session = self.session
+        }
+        
+        // Find front camera
+        guard let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
+            print("[SendVC] Front camera not found.")
+            return
+        }
+        self.frontCamera = frontCamera
+        do {
+            try frontCamera.lockForConfiguration()
+            
+            // Disable video HDR
+            if frontCamera.activeFormat.isVideoHDRSupported {
+                frontCamera.automaticallyAdjustsVideoHDREnabled = false
+                frontCamera.isVideoHDREnabled = false
+            }
+            
+            // Fix video frame rate
+            let sendFrameDuration = CMTime(value: 1, timescale: Int32(sendFrameRate))
+            frontCamera.activeVideoMinFrameDuration = sendFrameDuration
+            frontCamera.activeVideoMaxFrameDuration = sendFrameDuration
+                
+            frontCamera.unlockForConfiguration()
+        } catch let error {
+            print("[SendVC] Failed to lock front camera for configuration, error: \(error)")
+        }
+        
+        // Add input
+        guard let frontCameraDeviceInput = try? AVCaptureDeviceInput(device: frontCamera) else {
+            print("[SendVC] Failed to create device input.")
+            return
+        }
+        guard session.canAddInput(frontCameraDeviceInput) else {
+            print("[SendVC] Failed to add device input.")
+            return
+        }
+        session.addInput(frontCameraDeviceInput)
+        
+        // Add output
+        guard session.canAddOutput(frontCameraVideoDataOutput) else {
+            print("[SendVC] Cannot add output.")
+            return
+        }
+        session.addOutput(frontCameraVideoDataOutput)
+        frontCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+        frontCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
+        frontCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
+    }
+    
+    private func startSession() {
+        sessionQueue.async {
+            self.session.startRunning()
+            print("[SendVC] Session started, video format: \(self.frontCamera.activeFormat.description)")
+        }
+    }
+    
+    private func stopSession() {
+        sessionQueue.async {
+            self.session.stopRunning()
+            print("[SendVC] Session stopped.")
+        }
+    }
+    
+    private func lockCameraExposure(after delay: TimeInterval) {
+        sessionQueue.asyncAfter(deadline: .now() + delay) {
+            do {
+                try self.frontCamera.lockForConfiguration()
+                self.frontCamera.exposureMode = .autoExpose
+            } catch let error {
+                print("[SendVC] Failed to lock front camera for configuration, error: \(error)")
+            }
         }
     }
 }

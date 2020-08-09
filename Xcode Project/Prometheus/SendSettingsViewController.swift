@@ -41,7 +41,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @UserDefault(key: "sizeRatio", defaultValue: 0.3)
     var sizeRatio: Double
     
-    @UserDefault(key: "senderUsesDuplex", defaultValue: false)
+    @UserDefault(key: "senderUsesDuplexMode", defaultValue: false)
     var usesDuplexMode: Bool
     
     // MARK: - IB Outlets
@@ -145,6 +145,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let wideCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)!
         if wideCamera.hasTorch == false {
             transmissionModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
+            transmissionModeSegmentedControl.selectedSegmentIndex = 0
+            return
         }
         transmissionModeSegmentedControl.selectedSegmentIndex = usesDuplexMode ? 1 : 0
     }
