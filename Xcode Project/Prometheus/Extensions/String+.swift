@@ -2,7 +2,7 @@
 //  String+.swift
 //  Prometheus
 //
-//  Created by 潘维恒 on 2020/8/7.
+//  Created by PAN Weiheng on 2020/8/7.
 //  Copyright © 2020 PAN Weiheng. All rights reserved.
 //
 

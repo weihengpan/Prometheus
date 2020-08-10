@@ -2,7 +2,7 @@
 //  HistogramFilter.swift
 //  Prometheus
 //
-//  Created by 潘维恒 on 2020/8/8.
+//  Created by PAN Weiheng on 2020/8/8.
 //  Copyright © 2020 PAN Weiheng. Please refer to LICENSE for license information.
 //
 

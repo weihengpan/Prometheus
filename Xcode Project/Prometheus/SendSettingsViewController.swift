@@ -21,10 +21,10 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     var sendFrameRate: Double
     
     @UserDefault(key: "codeVersion", defaultValue: 18)
-    var codeVersion: Int
+    var singleCodeVersion: Int
     
     @UserDefaultEnum(key: "codeECL", defaultValue: .low)
-    var codeECL: QRCodeInformation.ErrorCorrectionLevel
+    var singleCodeECL: QRCodeInformation.ErrorCorrectionLevel
     
     @UserDefault(key: "largerCodeVersion", defaultValue: 18)
     var largerCodeVersion: Int
@@ -105,10 +105,13 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             sendVC.sendMode = self.sendMode
             sendVC.sendFrameRate = self.sendFrameRate
             sendVC.usesDuplexMode = self.usesDuplexMode
-            sendVC.codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.codeVersion, errorCorrectionLevel: self.codeECL)!
-            sendVC.largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.largerCodeVersion, errorCorrectionLevel: self.largerCodeECL)!
-            sendVC.smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: self.smallerCodeVersion, errorCorrectionLevel: self.smallerCodeECL)!
-            sendVC.smallerCodeSideLengthRatio = self.sizeRatio
+            sendVC.singleCodeVersion = self.singleCodeVersion
+            sendVC.singleCodeErrorCorrectionLevel = self.singleCodeECL
+            sendVC.largerCodeVersion = self.largerCodeVersion
+            sendVC.largerCodeErrorCorrectionLevel = self.largerCodeECL
+            sendVC.smallerCodeVersion = self.smallerCodeVersion
+            sendVC.smallerCodeErrorCorrectionLevel = self.smallerCodeECL
+            sendVC.codesSideLengthRatio = self.sizeRatio
         }
     }
     
@@ -159,7 +162,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         var value: Int
         switch stepper {
         case codeVersionStepper:
-            value = self.codeVersion
+            value = self.singleCodeVersion
         case largerCodeVersionStepper:
             value = self.largerCodeVersion
         case smallerCodeVersionStepper:
@@ -179,7 +182,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         var level: ErrorCorrectionLevel
         switch stepper {
         case codeECLStepper:
-            level = self.codeECL
+            level = self.singleCodeECL
         case largerCodeECLStepper:
             level = self.largerCodeECL
         case smallerCodeECLStepper:
@@ -241,7 +244,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         switch sender {
         case codeVersionStepper:
             codeVersionLabel.text = valueString
-            self.codeVersion = value
+            self.singleCodeVersion = value
         case largerCodeVersionStepper:
             largerCodeVersionLabel.text = valueString
             self.largerCodeVersion = value
@@ -263,7 +266,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         switch sender {
         case codeECLStepper:
             codeECLLabel.text = levelString
-            self.codeECL = level
+            self.singleCodeECL = level
         case largerCodeECLStepper:
             largerCodeECLLabel.text = levelString
             self.largerCodeECL = level

@@ -16,17 +16,18 @@ struct DataPacket {
     }
     
     var identifier: UInt32 = DataPacket.identifierConstant
-    private var flagBitsFrameIndexUnion: UInt32 = 0
+    private var flagAndFrameNumberUnion: UInt32 = 0
     var payload = Data()
     
-    var flagBits: UInt8 {
-        get { return UInt8(flagBitsFrameIndexUnion >> 24) }
-        set { flagBitsFrameIndexUnion = UInt32(newValue) << 24 + frameIndex }
+    var flag: UInt8 {
+        get { return UInt8(flagAndFrameNumberUnion >> 24) }
+        set { flagAndFrameNumberUnion = UInt32(newValue) << 24 + frameNumber }
     }
-    /// Only the last 24 bits are used
-    var frameIndex: UInt32 {
-        get { return UInt32(flagBitsFrameIndexUnion & 0x00FFFFFF) }
-        set { flagBitsFrameIndexUnion = UInt32(flagBits) << 24 + newValue }
+    
+    /// 24 bits only.
+    var frameNumber: UInt32 {
+        get { return UInt32(flagAndFrameNumberUnion & 0x00FFFFFF) }
+        set { flagAndFrameNumberUnion = UInt32(flag) << 24 + newValue }
     }
     
     private let archiver = BinaryArchiver()
@@ -35,30 +36,30 @@ struct DataPacket {
     // MARK: - Initializers
     
     init(header: UInt32, payload: Data) {
-        self.flagBitsFrameIndexUnion = header
+        self.flagAndFrameNumberUnion = header
         self.payload = payload
     }
     
-    init(flagBits: UInt8, frameIndex: UInt32, payload: Data) {
+    init(flag: UInt8, frameNumber: UInt32, payload: Data) {
         self.payload = payload
-        self.flagBitsFrameIndexUnion = 0
-        self.flagBits = flagBits
-        self.frameIndex = frameIndex
+        self.flagAndFrameNumberUnion = 0
+        self.flag = flag
+        self.frameNumber = frameNumber
     }
     
-    init?(flagBits: UInt8, frameIndex: UInt32, message: String, encoding: String.Encoding = .utf8) {
+    init?(flag: UInt8, frameNumber: UInt32, message: String, encoding: String.Encoding = .utf8) {
         guard let payload = message.data(using: encoding) else { return nil }
         self.payload = payload
-        self.flagBitsFrameIndexUnion = 0
-        self.flagBits = flagBits
-        self.frameIndex = frameIndex
+        self.flagAndFrameNumberUnion = 0
+        self.flag = flag
+        self.frameNumber = frameNumber
     }
     
     init?(archive: Data) {
         
         unarchiver.loadArchive(from: archive)
         unarchiver.unarchive(to: &identifier)
-        unarchiver.unarchive(to: &flagBitsFrameIndexUnion)
+        unarchiver.unarchive(to: &flagAndFrameNumberUnion)
         unarchiver.unarchive(to: &payload)
         
         // Verify identifier
@@ -70,12 +71,27 @@ struct DataPacket {
     func archive() -> Data {
         
         archiver.archive(identifier)
-        archiver.archive(flagBitsFrameIndexUnion)
+        archiver.archive(flagAndFrameNumberUnion)
         archiver.archive(payload)
         let archive = archiver.collectArchive()
         return archive
 
     }
         
+    // MARK: - Flag constants
+    
+    /*
+     
+     The flags listed below have no use yet.
+     These values should be put in the `flag` property of the packet.
+     Note that each flag is only 8-bit.
+     
+     */
+    
+    enum Flag {
+        
+        static let void: UInt8 = 0x00
+        
+    }
 }
 

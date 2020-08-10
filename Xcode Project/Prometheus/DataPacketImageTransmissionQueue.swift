@@ -11,7 +11,7 @@ import Foundation
 /// A class representing a data packet image transmission queue implemented with an `Array`.
 ///
 /// This is not a FIFO queue despite the name, since one can insert elements at the end of queue.
-class DataPacketImageTransmissionQueue {
+final class DataPacketImageTransmissionQueue {
     
     /// The storage of the queue. The first element is the front of the queue, while the last element is the end of the queue. This configuration makes dequeuing more efficient.
     private var array = [DataPacketImage]()

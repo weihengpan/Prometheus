@@ -2,7 +2,7 @@
 //  Array+.swift
 //  Prometheus
 //
-//  Created by 潘维恒 on 2020/8/10.
+//  Created by PAN Weiheng on 2020/8/10.
 //  Copyright © 2020 PAN Weiheng. Please refer to LICENSE for license information.
 //
 

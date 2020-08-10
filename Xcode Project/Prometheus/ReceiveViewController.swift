@@ -109,7 +109,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 case .receivingData:
                     latestMetadataPacket = nil
                     receivedDataPackets = []
-                    receivedFrameIndices = []
+                    receivedFrameNumbers = []
                     state = .waitingForMetadata
                     
                 default:
@@ -284,7 +284,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private var frameNumber = 0
     private var latestMetadataPacket: MetadataPacket!
     private var totalCountOfFrames = 0
-    private var receivedFrameIndices = Set<UInt32>()
+    private var receivedFrameNumbers = Set<UInt32>()
     private var receivedDataPackets = [DataPacket]()
     
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
@@ -563,7 +563,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             }
             
             // Reply with torch
-            if packet.flagBits == MetadataPacket.Flag.request {
+            if packet.flag == MetadataPacket.Flag.request {
                 turnOnTorch(for: 1 / TimeInterval(latestMetadataPacket.frameRate))
             }
             
@@ -571,7 +571,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             if decodeMode == .liveDecode {
                 
                 if usesDuplexMode == false ||
-                    (usesDuplexMode && packet.flagBits == MetadataPacket.Flag.ready) {
+                    (usesDuplexMode && packet.flag == MetadataPacket.Flag.ready) {
                     proceedToNextStateAndUpdateUI()
                 }
                 
@@ -591,23 +591,23 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
             guard let packet = DataPacket(archive: data) else { continue }
-            let frameIndex = packet.frameIndex
+            let frameNumber = packet.frameNumber
             
-            guard receivedFrameIndices.contains(frameIndex) == false else { continue }
-            receivedFrameIndices.insert(frameIndex)
+            guard receivedFrameNumbers.contains(frameNumber) == false else { continue }
+            receivedFrameNumbers.insert(frameNumber)
             receivedDataPackets.append(packet)
             let receivedDataPacketsCount = receivedDataPackets.count
             DispatchQueue.main.async {
                 self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
             }
-            print("[ReceiveVC] \(caption): Frame \(frameIndex) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
+            print("[ReceiveVC] \(caption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
                         
             // Received all packets
             if receivedDataPackets.count == totalCountOfFrames {
                 
                 guard let fileName = metadataPacket.fileName else { return }
                 
-                receivedDataPackets.sort(by: { $0.frameIndex < $1.frameIndex })
+                receivedDataPackets.sort(by: { $0.frameNumber < $1.frameNumber })
                 let combinedData = receivedDataPackets.lazy.map { $0.payload }.reduce(Data(), +)
                 print("[ReceiveVC] File \(fileName) received; \(combinedData.count) bytes of data.")
                 
@@ -757,19 +757,23 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             widePreviewLayer.setSessionWithNoConnection(session)
             telephotoPreviewLayer.setSessionWithNoConnection(session)
             
-            // Find dual camera and create device input
+            // Find and configure dual camera
             let dualCamera = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back)!
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: dualCamera, to: videoFormat)
+            }
+            let frameDuration = dualCamera.activeFormat.videoSupportedFrameRateRanges[0].maxFrameDuration
+            lockVideoFrameDuration(of: dualCamera, to: frameDuration)
+            currentCamera = dualCamera
+            
+            // Add device input
             dualCameraDeviceInput = try? AVCaptureDeviceInput(device: dualCamera)
             guard let dualCameraDeviceInput = dualCameraDeviceInput, session.canAddInput(dualCameraDeviceInput) else {
                 print("[Session Configuration] Could not add dual camera device input.")
                 setupResult = .configurationFailed
                 return
             }
-            if let videoFormat = videoFormat {
-                setVideoFormat(of: dualCamera, to: videoFormat)
-            }
             session.addInputWithNoConnections(dualCameraDeviceInput)
-            currentCamera = dualCamera
             
             // Find ports of the constituent devices of the device input
             guard let wideCameraVideoPort = dualCameraDeviceInput.ports(for: .video,
@@ -898,19 +902,24 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             // Setup preview layers
             widePreviewLayer.session = session
             
-            // Add device input
+            // Find and configure wide camera
             let wideCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)!
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: wideCamera, to: videoFormat)
+            }
+            let frameDuration = wideCamera.activeFormat.videoSupportedFrameRateRanges[0].maxFrameDuration
+            lockVideoFrameDuration(of: wideCamera, to: frameDuration)
+            currentCamera = wideCamera
+            
+            
+            // Add device input
             wideCameraDeviceInput = try? AVCaptureDeviceInput(device: wideCamera)
             guard let wideCameraDeviceInput = wideCameraDeviceInput, session.canAddInput(wideCameraDeviceInput) else {
                 print("[Session Configuration] Could not add wide camera device input.")
                 setupResult = .configurationFailed
                 return
             }
-            if let videoFormat = videoFormat {
-                setVideoFormat(of: wideCamera, to: videoFormat)
-            }
             session.addInput(wideCameraDeviceInput)
-            currentCamera = wideCamera
             
             // Add output
             switch decodeMode {
@@ -983,6 +992,28 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             device.unlockForConfiguration()
         } catch let error {
             print("[ReceiveVC] Could not lock device \(device.localizedName) for changing format, reason: \(error)")
+        }
+        
+    }
+    
+    private func lockVideoFrameDuration(of camera: AVCaptureDevice, to duration: CMTime) {
+        
+        do {
+            try camera.lockForConfiguration()
+            
+            // Disable video HDR
+            if camera.activeFormat.isVideoHDRSupported {
+                camera.automaticallyAdjustsVideoHDREnabled = false
+                camera.isVideoHDREnabled = false
+            }
+            
+            // Fix video frame rate
+            camera.activeVideoMinFrameDuration = duration
+            camera.activeVideoMaxFrameDuration = duration
+            
+            camera.unlockForConfiguration()
+        } catch let error {
+            print("[ReceiveVC] Failed to lock front camera for configuration, error: \(error)")
         }
         
     }

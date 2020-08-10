@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4C7680C424E1548F00ACBEDB /* DataPacketImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7680C324E1548F00ACBEDB /* DataPacketImage.swift */; };
+		4C7680C624E154C700ACBEDB /* DataPacketImageTransmissionQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7680C524E154C700ACBEDB /* DataPacketImageTransmissionQueue.swift */; };
 		4C820F5A24B5E379004A8229 /* NestedQRCodeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */; };
 		4C8C46A924B6056800113A51 /* MetalRenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8C46A824B6056800113A51 /* MetalRenderView.swift */; };
 		4C8C46AB24B6F69700113A51 /* DataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8C46AA24B6F69700113A51 /* DataPacket.swift */; };
@@ -56,6 +58,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4C7680C324E1548F00ACBEDB /* DataPacketImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPacketImage.swift; sourceTree = "<group>"; };
+		4C7680C524E154C700ACBEDB /* DataPacketImageTransmissionQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPacketImageTransmissionQueue.swift; sourceTree = "<group>"; };
 		4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestedQRCodeGenerator.swift; sourceTree = "<group>"; };
 		4C8C46A824B6056800113A51 /* MetalRenderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderView.swift; sourceTree = "<group>"; };
 		4C8C46AA24B6F69700113A51 /* DataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPacket.swift; sourceTree = "<group>"; };
@@ -181,6 +185,8 @@
 				4CA7CDAB24D6AB6E00EC82E1 /* SendSettingsViewController.swift */,
 				4CE9163C24B448CD005F391A /* SendViewController.swift */,
 				4CAB37BE24DE60E500B043CC /* DuplexViewContoller.swift */,
+				4C7680C324E1548F00ACBEDB /* DataPacketImage.swift */,
+				4C7680C524E154C700ACBEDB /* DataPacketImageTransmissionQueue.swift */,
 				4CAB37C024DE6ED400B043CC /* HistogramFilter.swift */,
 				4CE9166824B45A0C005F391A /* PreviewView.swift */,
 				4C8C46A824B6056800113A51 /* MetalRenderView.swift */,
@@ -350,6 +356,7 @@
 				4CE9166924B45A0C005F391A /* PreviewView.swift in Sources */,
 				4CE9163D24B448CD005F391A /* SendViewController.swift in Sources */,
 				4C90A92324E0558B00B32815 /* Array+.swift in Sources */,
+				4C7680C624E154C700ACBEDB /* DataPacketImageTransmissionQueue.swift in Sources */,
 				4C9A2A3924DEC59B00F6C6A1 /* UIViewController+.swift in Sources */,
 				4CA7CDB024D6D86700EC82E1 /* UserDefault.swift in Sources */,
 				4CE9163B24B448CD005F391A /* ReceiveViewController.swift in Sources */,
@@ -360,6 +367,7 @@
 				4CC1A20A24B7427200A2CE62 /* CIQRCodeDescriptor+.swift in Sources */,
 				4CD8850324D944DB0076AFA3 /* ReceiveSettingsViewController.swift in Sources */,
 				4C9A2A3F24DEDD5600F6C6A1 /* BinaryUnarchiver.swift in Sources */,
+				4C7680C424E1548F00ACBEDB /* DataPacketImage.swift in Sources */,
 				4C820F5A24B5E379004A8229 /* NestedQRCodeGenerator.swift in Sources */,
 				4CAB37C124DE6ED400B043CC /* HistogramFilter.swift in Sources */,
 				4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */,
@@ -543,7 +551,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.5;
@@ -564,7 +572,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 408;
+				CURRENT_PROJECT_VERSION = 409;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.5;

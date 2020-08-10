@@ -88,19 +88,10 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         DispatchQueue.main.async {
             if self.hasGeneratedCodes == false {
                 
-                let scale = UIScreen.main.scale
-                var sideLength: CGFloat
-                switch self.sendMode {
-                
-                case .single, .nested:
-                    sideLength = self.singleRenderView.frame.width * scale
-                    
-                case .alternatingSingle:
-                    sideLength = self.topRenderView.frame.width * scale
-                }
-                
                 self.sessionQueue.async {
-                    self.generateCodeImages(renderViewSideLength: sideLength)
+                    self.generateCodeImagesAndLoadTransmissionQueue()
+                    
+                    guard self.usesDuplexMode else { return }
                     self.setupSession()
                     self.startSession()
                     self.lockCameraExposure(after: 0.5)
@@ -207,23 +198,32 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     var sendFrameRate = 15.0
     
     /// For single code modes only.
-    var codeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13,
-                                                           errorCorrectionLevel: .low)!
+    var singleCodeVersion = 13
+    var singleCodeErrorCorrectionLevel: QRCodeInformation.ErrorCorrectionLevel = .low
+    var singleCodeMaxPacketSize: Int {
+        return QRCodeInformation.dataCapacity(forVersion: singleCodeVersion,
+                                              errorCorrectionLevel: singleCodeErrorCorrectionLevel)!
+    }
     
     /// For nested code mode only.
-    var largerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 18,
-                                                                 errorCorrectionLevel: .quartile)!
-    var smallerCodeMaxPacketSize = QRCodeInformation.dataCapacity(forVersion: 13,
-                                                                  errorCorrectionLevel: .low)!
+    var largerCodeVersion = 18
+    var largerCodeErrorCorrectionLevel: QRCodeInformation.ErrorCorrectionLevel = .quartile
+    var largerCodeMaxPacketSize: Int {
+        return QRCodeInformation.dataCapacity(forVersion: largerCodeVersion,
+                                              errorCorrectionLevel: largerCodeErrorCorrectionLevel)!
+    }
+    var smallerCodeVersion = 13
+    var smallerCodeErrorCorrectionLevel: QRCodeInformation.ErrorCorrectionLevel = .low
+    var smallerCodeMaxPacketSize: Int {
+        return QRCodeInformation.dataCapacity(forVersion: smallerCodeVersion,
+                                              errorCorrectionLevel: smallerCodeErrorCorrectionLevel)!
+    }
     
-    var smallerCodeSideLengthRatio = 0.3
+    var codesSideLengthRatio = 0.3
     
     private let codeGenerator = NestedQRCodeGenerator()
     
     /* State variables */
-    
-    private(set) var dataPacketFrameIndex = 0
-    private(set) var metadataPacketFrameIndex = 0
     
     private var metadataCodeImage: CIImage?
     
@@ -231,12 +231,19 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var requestMetadataCodeImage: CIImage!
     private var readyMetadataCodeImage: CIImage!
     
-    private var dataCodeImages = [CIImage]()
+    /// The data packet images, arranged in increasing order of their frame numbers.
+    ///
+    /// You should not alter the order of the elements in this array.
+    private var dataPacketImages = [DataPacketImage]()
+    
+    /// The queue used to hold data packet code images to be transmitted.
+    private var transmissionQueue = DataPacketImageTransmissionQueue()
     
     // For duplex mode only.
     private var metadataCodeDisplaySubscription: AnyCancellable?
     
     private var dataCodeDisplaySubscription: AnyCancellable?
+    
     
     private func displayStaticMetadataCodeImage() {
         
@@ -246,45 +253,48 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             switch self.sendMode {
                 
             case .single, .nested:
-                self.singleRenderView.image = image
+                self.singleRenderView.setImage(image)
                 
             case .alternatingSingle:
-                self.topRenderView.image = image
-                self.bottomRenderView.image = image
+                self.topRenderView.setImage(image)
+                self.bottomRenderView.setImage(image)
             }
         }
     }
     
     private func startDisplayingDataCodeImages() {
         
-        var codeImagesIterator = dataCodeImages.makeIterator()
         dataCodeDisplaySubscription = Timer.publish(every: 1.0 / sendFrameRate, on: .current, in: .common)
             .autoconnect()
             .sink { _ in
                 
-                let nextImage = codeImagesIterator.next()
+                guard let nextPacketImage = self.transmissionQueue.dequeue() else { return }
                 DispatchQueue.main.async {
                     
                     switch self.sendMode {
                         
-                    case .single, .nested:
-                        self.singleRenderView.image = nextImage
+                    case .single:
+                        self.singleRenderView.setImage(nextPacketImage.image)
                         
                     case .alternatingSingle:
-                        if self.dataPacketFrameIndex % 2 == 0 {
+                        if nextPacketImage.frameNumber % 2 == 0 {
                             
-                            self.topRenderView.image = nextImage
-                            self.bottomRenderView.image = nil
+                            self.topRenderView.setImage(nextPacketImage.image)
+                            self.bottomRenderView.setImage(nil)
                             
                         } else {
                             
-                            self.bottomRenderView.image = nextImage
-                            self.topRenderView.image = nil
+                            self.bottomRenderView.setImage(nextPacketImage.image)
+                            self.topRenderView.setImage(nil)
                         }
+                        
+                    case .nested:
+                        let largerCodeImage = nextPacketImage.image
+                        let smallerCodeImage = self.transmissionQueue.dequeue()?.image ?? .empty()
+                        self.singleRenderView.setNestedImages(larger: largerCodeImage, smaller: smallerCodeImage, sizeRatio: CGFloat(self.codesSideLengthRatio))
                     }
                 }
                 
-                self.dataPacketFrameIndex += 1
         }
     }
     
@@ -294,12 +304,12 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         subscription.cancel()
         dataCodeDisplaySubscription = nil
         
-        dataPacketFrameIndex = 0
+        transmissionQueue.clear()
         
         clearRenderViewImages()
     }
     
-    private func generateCodeImages(renderViewSideLength sideLength: CGFloat) {
+    private func generateCodeImagesAndLoadTransmissionQueue() {
         
         /// - TODO: select file from Files.app
         let fileName = "Alice's Adventures in Wonderland"
@@ -315,64 +325,66 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
         
         // Generate data codes
-        var frameCount: Int
         switch sendMode {
+            
         case .single, .alternatingSingle:
-            dataCodeImages = codeGenerator.generateQRCodes(forData: messageData,
-                                                           correctionLevel: .low,
-                                                           sideLength: sideLength,
-                                                           maxPacketSize: self.codeMaxPacketSize)
-            frameCount = dataCodeImages.count
+            dataPacketImages = codeGenerator
+                .generateDataPacketImages(for: messageData,
+                                          correctionLevel: singleCodeErrorCorrectionLevel,
+                                          maxPacketSize: singleCodeMaxPacketSize)
+            
         case .nested:
-            (dataCodeImages, frameCount) = codeGenerator
-                .generateNestedQRCodes(forData: messageData,
-                                       largerCodeMaxPacketSize: largerCodeMaxPacketSize,
-                                       smallerCodeMaxPacketSize: smallerCodeMaxPacketSize,
-                                       smallerCodeSideLengthRatio: smallerCodeSideLengthRatio,
-                                       sideLength: sideLength)
+            dataPacketImages = codeGenerator
+                .generateDataPacketImagesForNestedDisplay(for: messageData,
+                                                          largerCodeCorrectionLevel: largerCodeErrorCorrectionLevel,
+                                                          largerCodeMaxPacketSize: largerCodeMaxPacketSize,
+                                                          smallerCodeCorrectionLevel: smallerCodeErrorCorrectionLevel,
+                                                          smallerCodeMaxPacketSize: smallerCodeMaxPacketSize)
         }
+        let frameCount = dataPacketImages.count
         
-        // Generate metadata code
+        // Load transmission queue
+        transmissionQueue = DataPacketImageTransmissionQueue(dataPacketImages)
+        
+        // Generate metadata codes
         let fileSize = messageData.count
-        let fullFileName = fileName + "." + fileExtension
+        let fileNameWithExtension = fileName + "." + fileExtension
         
         if usesDuplexMode {
                         
             // Generate request metadata packet
-            guard let requestMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.request,
+            guard let requestMetadataPacket = MetadataPacket(flag: MetadataPacket.Flag.request,
                                                              numberOfFrames: UInt32(frameCount),
                                                              frameRate: UInt32(sendFrameRate),
                                                              fileSize: UInt32(fileSize),
-                                                             fileName: fullFileName)
+                                                             fileName: fileNameWithExtension)
                 else {
                     fatalError("[SendVC] Failed to create metadata packet.")
             }
-            requestMetadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: requestMetadataPacket, sideLength: sideLength)
+            requestMetadataCodeImage = codeGenerator.generateMetadataCode(for: requestMetadataPacket)
             
             // Generate ready metadata packet
-            guard let readyMetadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.ready,
+            guard let readyMetadataPacket = MetadataPacket(flag: MetadataPacket.Flag.ready,
                                                            numberOfFrames: UInt32(frameCount),
                                                            frameRate: UInt32(sendFrameRate),
                                                            fileSize: UInt32(fileSize),
-                                                           fileName: fullFileName)
+                                                           fileName: fileNameWithExtension)
                 else {
                     fatalError("[SendVC] Failed to create metadata packet.")
             }
-            readyMetadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: readyMetadataPacket,
-                                                                  sideLength: sideLength)
+            readyMetadataCodeImage = codeGenerator.generateMetadataCode(for: readyMetadataPacket)
             
         } else {
             
-            guard let metadataPacket = MetadataPacket(flagBits: MetadataPacket.Flag.void,
+            guard let metadataPacket = MetadataPacket(flag: MetadataPacket.Flag.void,
                                                       numberOfFrames: UInt32(frameCount),
                                                       frameRate: UInt32(sendFrameRate),
                                                       fileSize: UInt32(fileSize),
-                                                      fileName: fullFileName)
+                                                      fileName: fileNameWithExtension)
                 else {
                     fatalError("[SendVC] Failed to create metadata packet.")
             }
-            metadataCodeImage = codeGenerator.generateQRCode(forMetadataPacket: metadataPacket,
-                                                             sideLength: sideLength)
+            metadataCodeImage = codeGenerator.generateMetadataCode(for: metadataPacket)
         }
         
         // Advance state
@@ -383,9 +395,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 
         let clearImage: CIImage = .clear
         DispatchQueue.main.async {
-            self.singleRenderView.image = clearImage
-            self.topRenderView.image = clearImage
-            self.bottomRenderView.image = clearImage
+            self.singleRenderView.setImage(clearImage)
+            self.topRenderView.setImage(clearImage)
+            self.bottomRenderView.setImage(clearImage)
         }
     }
     
@@ -396,7 +408,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     
     /*
      
-     State variables
+     Calibration State Variables
      
      */
     
@@ -406,18 +418,20 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var hasReceivedReply = true
         
     /// The number of white pixels in the last frame.
+    ///
+    /// This variable is reused during sending.
     private var lastPixelCount: Int!
     
     /// Number of frames that has elapsed since the calibration request was sent.
-    private var transmissionDelay = 0
+    private var roundTripTime = 0
     
     /// Samples of the difference in the number of white pixels in successive frames.
     ///
     /// Only samples of rising edges will be collected, so the elements are all positive.
     private var pixelCountDeltaSamples = [Int]()
     
-    /// Samples of `transmissionDelay`.
-    private var transmissionDelaySamples = [Int]()
+    /// Samples of `roundTripTime`.
+    private var roundTripTimeSamples = [Int]()
     
     /// The minimum waiting time between the receipt of a reply and the next request.
     private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.2
@@ -425,99 +439,160 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     /// Whether enough time (equal to `minimumTimeToWaitUntilNextRequest`) has passed since the receipt of a reply.
     private var hasFinishedWaiting = true
     
+    /*
+     
+     Calibrated Parameters
+     
+     These variables are used during sending and determined by calibration.
+     
+     */
+    
+    /// Estimated threshold of the number of white pixels in a frame for it to be recognized as a reply.
+    private var calibratedPixelCountDeltaThreshold: Int!
+    
+    /// The calibrated mean round trip time from a request to its reply, measured in numbers of frames.
+    /// It is used to estimate which frame was lost by subtracting this value from the current frame
+    /// number when a retransmission request is received.
+    private var calibratedRoundTripTimeMean: Int!
+    
+    /// The calibrated variation of the round trip time away from its mean.
+    /// During retransmission, frames whose numbers are in the range `[FN-V, FN+V]` will be retransmitted,
+    /// where `FN` is the estimated number of the lost frame, and `V` is the value of this variable.
+    private var calibratedRoundTripTimeVariation: Int!
+    
+    
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         
-        guard state == .calibrating else { return }
-        
-        // Receive calibration reply
-        guard let imageBuffer = sampleBuffer.imageBuffer else { return }
-        let inputImage = CIImage(cvImageBuffer: imageBuffer)
-        let histogram = histogramFilter.calculateHistogram(of: inputImage)
-        let currentPixelCount = Int(histogram.last!)
-        
-        if let lastPixelCount = lastPixelCount, hasReceivedReply == false {
-            
-            let pixelCountDelta = currentPixelCount - lastPixelCount
-            let pixelCountRatioThreshold = 0.01 // empirical value
-            let framePixelCount = pixelCount(of: frontCamera.activeFormat)
-            
-            // Detect whether the number of white pixels have suddenly increased i.e. the torch was turned on
-            if Double(pixelCountDelta) >= Double(framePixelCount) * pixelCountRatioThreshold {
+        guard usesDuplexMode else { return }
                 
-                hasReceivedReply = true
-                pixelCountDeltaSamples.append(pixelCountDelta)
-                transmissionDelaySamples.append(transmissionDelay)
-                print("[Calibration] Reply received.")
-                print("[Calibration] White pixel count delta: \(pixelCountDelta)")
-                print("[Calibration] Transmission delay: \(transmissionDelay)")
+        switch state {
+            
+        /* Calibration */
+            
+        case .calibrating:
+            
+            // Calculate histogram
+            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+            let inputImage = CIImage(cvImageBuffer: imageBuffer)
+            let histogram = histogramFilter.calculateHistogram(of: inputImage)
+            let currentPixelCount = Int(histogram.last!)
+            
+            // Detect calibration reply
+            if let lastPixelCount = lastPixelCount, hasReceivedReply == false {
                 
-                hasFinishedWaiting = false
-                DispatchQueue.main.async {
-                    Timer.scheduledTimer(withTimeInterval: self.minimumTimeToWaitUntilNextRequest, repeats: false) { _ in
-                        self.hasFinishedWaiting = true
+                let pixelCountDelta = currentPixelCount - lastPixelCount
+                let pixelCountRatioThreshold = 0.01 // empirical value
+                let framePixelCount = pixelCount(of: frontCamera.activeFormat)
+                
+                // Detect whether the number of white pixels have suddenly increased i.e. the torch was turned on
+                let fixedPixelCountDeltaThreshold = Double(framePixelCount) * pixelCountRatioThreshold
+                if Double(pixelCountDelta) >= fixedPixelCountDeltaThreshold {
+                    
+                    hasReceivedReply = true
+                    pixelCountDeltaSamples.append(pixelCountDelta)
+                    roundTripTimeSamples.append(roundTripTime)
+                    print("[Calibration] Reply received.")
+                    print("[Calibration] White pixel count delta: \(pixelCountDelta)")
+                    print("[Calibration] Round trip time: \(roundTripTime)")
+                    
+                    hasFinishedWaiting = false
+                    DispatchQueue.main.async {
+                        Timer.scheduledTimer(withTimeInterval: self.minimumTimeToWaitUntilNextRequest, repeats: false) { _ in
+                            self.hasFinishedWaiting = true
+                        }
                     }
                 }
-            }
-            
-            // Finish the calibration if enough samples have been collected
-            let numberOfSamplesNeeded = 10
-            if pixelCountDeltaSamples.count >= numberOfSamplesNeeded {
                 
-                let pixelCountDeltaSamplesInDouble = pixelCountDeltaSamples.map { Double($0) }
-                let pixelCountDeltaSamplesMean = pixelCountDeltaSamplesInDouble.average
-                let pixelCountDeltaSamplesStandardDeviation = pixelCountDeltaSamplesInDouble.standardDeviation
-                
-                let transmissionDelaySamplesInDouble = transmissionDelaySamples.map { Double($0) }
-                let transmissionDelaySamplesMean = transmissionDelaySamplesInDouble.average
-                let transmissionDelaySamplesStandardDeviation = transmissionDelaySamplesInDouble.standardDeviation
-                
-                print("[Calibration] Enough samples have been collected.")
-                
-                print("[Calibration] Pixel count delta samples: \(pixelCountDeltaSamples)")
-                print("[Calibration] Mean: \(pixelCountDeltaSamplesMean)")
-                print("[Calibration] Standard deviation: \(pixelCountDeltaSamplesStandardDeviation)")
-                
-                print("[Calibration] Transmission delay samples: \(transmissionDelaySamples)")
-                print("[Calibration] Mean: \(transmissionDelaySamplesMean)")
-                print("[Calibration] Standard deviation: \(transmissionDelaySamplesStandardDeviation)")
-
-                proceedToNextStateAndUpdateUI()
-                return
-            }
-        }
-        
-        // Send calibration request
-        if hasReceivedReply && hasFinishedWaiting {
-            
-            let image = requestMetadataCodeImage
-            DispatchQueue.main.async {
-                switch self.sendMode {
+                // Finish the calibration if enough samples have been collected
+                let numberOfSamplesNeeded = 10
+                if pixelCountDeltaSamples.count >= numberOfSamplesNeeded {
                     
-                case .single, .nested:
-                    self.singleRenderView.image = image
+                    // Calculate statistics
+                    let pixelCountDeltaSamplesInDouble = pixelCountDeltaSamples.map { Double($0) }
+                    let pixelCountDeltaSamplesMean = pixelCountDeltaSamplesInDouble.average
+                    let pixelCountDeltaSamplesStandardDeviation = pixelCountDeltaSamplesInDouble.standardDeviation
                     
-                case .alternatingSingle:
-                    self.topRenderView.image = image
-                    self.bottomRenderView.image = image
-                }
-            }
-            print("[Calibration] Request sent.")
-            
-            hasReceivedReply = false
-            transmissionDelay = 0 // Note that this will become 1 at the end of the method
-            
-            DispatchQueue.main.async {
-                Timer.scheduledTimer(withTimeInterval: 1 / self.sendFrameRate, repeats: false) { _ in
-                    self.clearRenderViewImages()
-                    print("images cleared in timer")
+                    let roundTripTimeSamplesInDouble = roundTripTimeSamples.map { Double($0) }
+                    let roundTripTimeSamplesMean = roundTripTimeSamplesInDouble.average
+                    let roundTripTimeSamplesStandardDeviation = roundTripTimeSamplesInDouble.standardDeviation
+                    
+                    print("[Calibration] Enough samples have been collected.")
+                    
+                    print("[Calibration] Pixel count delta samples: \(pixelCountDeltaSamples)")
+                    print("[Calibration] Mean: \(pixelCountDeltaSamplesMean)")
+                    print("[Calibration] Standard deviation: \(pixelCountDeltaSamplesStandardDeviation)")
+                    
+                    print("[Calibration] Round trip time samples: \(roundTripTimeSamples)")
+                    print("[Calibration] Mean: \(roundTripTimeSamplesMean)")
+                    print("[Calibration] Standard deviation: \(roundTripTimeSamplesStandardDeviation)")
+                    
+                    // Update calibrated parameters
+                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2 * pixelCountDeltaSamplesStandardDeviation
+                    calibratedPixelCountDeltaThreshold = Int(max(estimatedPixelCountDeltaThreshold, fixedPixelCountDeltaThreshold).rounded())
+                    
+                    calibratedRoundTripTimeMean = Int(roundTripTimeSamplesMean.rounded())
+                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up))
+                    
+                    proceedToNextStateAndUpdateUI()
+                    return
                 }
             }
             
+            // Send calibration request
+            if hasReceivedReply && hasFinishedWaiting {
+                
+                let image = requestMetadataCodeImage
+                DispatchQueue.main.async {
+                    switch self.sendMode {
+                        
+                    case .single, .nested:
+                        self.singleRenderView.setImage(image)
+                        
+                    case .alternatingSingle:
+                        self.topRenderView.setImage(image)
+                        self.bottomRenderView.setImage(image)
+                    }
+                }
+                print("[Calibration] Request sent.")
+                
+                hasReceivedReply = false
+                roundTripTime = 0 // Note that this will become 1 at the end of the method
+                
+                DispatchQueue.main.async {
+                    Timer.scheduledTimer(withTimeInterval: 1 / self.sendFrameRate, repeats: false) { _ in
+                        self.clearRenderViewImages()
+                    }
+                }
+                
+            }
+            
+            // Update state variables
+            roundTripTime += 1
+            lastPixelCount = currentPixelCount
+            
+            
+        /* Retransmission */
+            
+            
+        case .sending:
+           
+            
+            // Calculate image histogram
+            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+            let inputImage = CIImage(cvImageBuffer: imageBuffer)
+            let histogram = histogramFilter.calculateHistogram(of: inputImage)
+            let currentPixelCount = Int(histogram.last!)
+            
+            // Detect retransmission request
+            if currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold {
+                
+                /// - TODO: retransmit
+                
+            }
+            
+        default:
+            return
         }
-        
-        // Update state variables
-        transmissionDelay += 1
-        lastPixelCount = currentPixelCount
     }
     
     func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -627,5 +702,5 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             }
         }
     }
-}
 
+}

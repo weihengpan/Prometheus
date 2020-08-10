@@ -14,14 +14,14 @@ struct MetadataPacket {
     static let fileNameEncoding: String.Encoding = .utf8
     
     var identifier: UInt32 = MetadataPacket.identifierConstant
-    var flagBits: UInt32 = 0
+    var flag: UInt32 = 0
     var numberOfFrames: UInt32 = 0
     var frameRate: UInt32 = 0
     var fileSize: UInt32 = 0
     private var fileNameData = Data()
     
     var flagString: String {
-        switch flagBits {
+        switch flag {
         case Flag.void:
             return "void"
         case Flag.request:
@@ -42,16 +42,16 @@ struct MetadataPacket {
     
     // MARK: - Initializers
     
-    init(flagBits: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileNameData: Data) {
-        self.flagBits = flagBits
+    init(flag: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileNameData: Data) {
+        self.flag = flag
         self.numberOfFrames = numberOfFrames
         self.frameRate = frameRate
         self.fileSize = fileSize
         self.fileNameData = fileNameData
     }
     
-    init?(flagBits: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileName: String) {
-        self.flagBits = flagBits
+    init?(flag: UInt32, numberOfFrames: UInt32, frameRate: UInt32, fileSize: UInt32, fileName: String) {
+        self.flag = flag
         self.numberOfFrames = numberOfFrames
         self.frameRate = frameRate
         self.fileSize = fileSize
@@ -63,7 +63,7 @@ struct MetadataPacket {
         
         unarchiver.loadArchive(from: archive)
         unarchiver.unarchive(to: &identifier)
-        unarchiver.unarchive(to: &flagBits)
+        unarchiver.unarchive(to: &flag)
         unarchiver.unarchive(to: &numberOfFrames)
         unarchiver.unarchive(to: &frameRate)
         unarchiver.unarchive(to: &fileSize)
@@ -78,7 +78,7 @@ struct MetadataPacket {
     func archive() -> Data {
         
         archiver.archive(identifier)
-        archiver.archive(flagBits)
+        archiver.archive(flag)
         archiver.archive(numberOfFrames)
         archiver.archive(frameRate)
         archiver.archive(fileSize)
@@ -92,12 +92,13 @@ struct MetadataPacket {
     /*
      
      The flags listed below are used during calibration in duplex mode.
-     These values should be put in the `flagBits` property of the packet.
+     These values should be put in the `flag` property of the packet.
      Here, a "reply" is a quick flash emitted by the receiver.
      
      */
     
     enum Flag {
+        
         /// This flag carries no meaning, and should be ignored.
         static let void: UInt32 =    0x00000000
         

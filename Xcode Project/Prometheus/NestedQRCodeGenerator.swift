@@ -17,20 +17,27 @@ class NestedQRCodeGenerator {
     
     // MARK: - Methods
     
-    func generateNestedQRCodes(forData data: Data, largerCodeMaxPacketSize: Int, smallerCodeMaxPacketSize: Int, smallerCodeSideLengthRatio: Double, sideLength outputSideLength: CGFloat) -> ([CIImage], Int) {
+    /// Generates code images for the given data by splitting it into segments of appropriate sizes so that they may be displayed in a nested configuration.
+    /// - Parameters:
+    ///   - data: The input data.
+    ///   - largerCodeMaxPacketSize: The maximum packet size of the larger codes.
+    ///   - smallerCodeMaxPacketSize: The maximum packet size of the smaller codes.
+    /// - Returns: The generated code images, arranged in the following order: [larger, smaller, larger, smaller, ...]. The images are unit-sized, so you will need to scale and composite them to display them properly.
+    func generateDataPacketImagesForNestedDisplay(for data: Data, largerCodeCorrectionLevel: ErrorCorrectionLevel, largerCodeMaxPacketSize: Int, smallerCodeCorrectionLevel: ErrorCorrectionLevel, smallerCodeMaxPacketSize: Int) -> [DataPacketImage] {
         
-        let unusableWidth = DataPacket.headerSize
-        let largerCodeMaxPayloadSize = largerCodeMaxPacketSize - unusableWidth
-        let smallerCodeMaxPayloadSize = smallerCodeMaxPacketSize - unusableWidth
+        let headerSize = DataPacket.headerSize
+        let largerCodeMaxPayloadSize = largerCodeMaxPacketSize - headerSize
+        let smallerCodeMaxPayloadSize = smallerCodeMaxPacketSize - headerSize
         let dataSize = data.count
         
-        // Split data
-        var largerCodesData = [Data]()
-        var smallerCodesData = [Data]()
-        var frameIndex: UInt32 = 0
+        // Generate images
+        var dataPacketImages = [DataPacketImage]()
+        var frameNumber: UInt32 = 0
         var bytesSplit = 0
         while bytesSplit < dataSize {
-            let maxPayloadSize = (frameIndex % 2 == 0) ? largerCodeMaxPayloadSize : smallerCodeMaxPayloadSize
+            
+            let maxPayloadSize = (frameNumber % 2 == 0) ? largerCodeMaxPayloadSize : smallerCodeMaxPayloadSize
+            let correctionLevel = (frameNumber % 2 == 0) ? largerCodeCorrectionLevel : smallerCodeCorrectionLevel
             
             // Get payload segment
             let bytesNotSplit = dataSize - bytesSplit
@@ -39,98 +46,43 @@ class NestedQRCodeGenerator {
             let payload = data[payloadIndexRange]
             
             // Create packet
-            let packet = DataPacket(flagBits: 0, frameIndex: frameIndex, payload: payload)
-            let packetData = packet.archive()
+            let packet = DataPacket(flag: DataPacket.Flag.void,
+                                    frameNumber: frameNumber,
+                                    payload: payload)
             
-            // Append segment and increment
-            if frameIndex % 2 == 0 {
-                largerCodesData.append(packetData)
-            } else {
-                smallerCodesData.append(packetData)
-            }
-            frameIndex += 1
+            // Create image
+            let image = generateUnitSizedQRCode(for: packet.archive(), correctionLevel: correctionLevel)
+            let packetImage = DataPacketImage(image: image, frameNumber: frameNumber)
+            
+            // Append image and increment
+            dataPacketImages.append(packetImage)
             bytesSplit += payloadSize
+            frameNumber += 1
         }
         
-        // Convert to QR code images
-        let unitSizedLargerCodes = largerCodesData.map { generateUnitSizedQRCode(forData: $0, correctionLevel: .quartile) }
-        let unitSizedSmallerCodes = smallerCodesData.map { generateUnitSizedQRCode(forData: $0, correctionLevel: .low) }
-        
-        // Scale code images
-        func scaleImages(images: [CIImage], sideLength outputSideLength: CGFloat) -> [CIImage] {
-            var scaledImages = [CIImage]()
-            for image in images {
-                let imageSideLength = image.extent.width
-                let scalingFactor = outputSideLength / imageSideLength
-                let transform = CGAffineTransform(scaleX: scalingFactor, y: scalingFactor)
-                let scaledImage = image.transformed(by: transform)
-                scaledImages.append(scaledImage)
-            }
-            return scaledImages
-        }
-        let smallerCodeSideLength = outputSideLength * CGFloat(smallerCodeSideLengthRatio)
-        let largerCodes = scaleImages(images: unitSizedLargerCodes, sideLength: outputSideLength)
-        let smallerCodes = scaleImages(images: unitSizedSmallerCodes, sideLength: smallerCodeSideLength)
-        
-        // Translate smaller codes to the center of the larger code
-        let translationDistance = (outputSideLength - smallerCodeSideLength) / 2.0
-        let translation = CGAffineTransform(translationX: translationDistance, y: translationDistance)
-        var translatedSmallerCodes = smallerCodes.map { $0.transformed(by: translation) }
-        
-        // Merge the two types of codes
-        if largerCodes.count > translatedSmallerCodes.count {
-            translatedSmallerCodes.append(.empty())
-        }
-        var mergedCodes = [CIImage]()
-        for i in 0..<largerCodes.count {
-            let largerCode = largerCodes[i]
-            let translatedSmallerCode = translatedSmallerCodes[i]
-            let mergedCode = translatedSmallerCode.composited(over: largerCode)
-            mergedCodes.append(mergedCode)
-        }
-        
-        let frameCount = largerCodes.count + smallerCodes.count
-        return (mergedCodes, frameCount)
+        return dataPacketImages
     }
     
-    func generateQRCode(forMetadataPacket packet: MetadataPacket, sideLength outputSideLength: CGFloat) -> CIImage {
-        let correctionLevel: ErrorCorrectionLevel = .medium
+    func generateMetadataCode(for packet: MetadataPacket, correctionLevel: ErrorCorrectionLevel = .medium) -> CIImage {
+        
         let packetData = packet.archive()
-        let image = generateUnitSizedQRCode(forData: packetData, correctionLevel: correctionLevel)
+        let image = generateUnitSizedQRCode(for: packetData, correctionLevel: correctionLevel)
         
-        let imageSideLength = image.extent.width
-        let scalingFactor = outputSideLength / imageSideLength
-        let transform = CGAffineTransform(scaleX: scalingFactor, y: scalingFactor)
-        let scaledImage = image.transformed(by: transform)
-        
-        let renderedImage = ciContext.createCGImage(scaledImage, from: scaledImage.extent)!
-        return CIImage(cgImage: renderedImage)
+        return image
     }
     
-    func generateQRCodes(forData data: Data, correctionLevel: ErrorCorrectionLevel = .low, sideLength outputSideLength: CGFloat, maxPacketSize: Int) -> [CIImage] {
-        let codeImages = generateUnitSizedQRCodes(forData: data, correctionLevel: correctionLevel, maxPacketSize: maxPacketSize)
-        var scaledCodeImages: [CIImage] = []
-        for image in codeImages {
-            let imageSideLength = image.extent.width
-            let scalingFactor = outputSideLength / imageSideLength
-            let transform = CGAffineTransform(scaleX: scalingFactor, y: scalingFactor)
-            let scaledImage = image.transformed(by: transform)
-            scaledCodeImages.append(scaledImage)
-        }
-        return scaledCodeImages
-    }
-    
-    func generateUnitSizedQRCodes(forData data: Data, correctionLevel: ErrorCorrectionLevel, maxPacketSize: Int) -> [CIImage] {
+    func generateDataPacketImages(for data: Data, correctionLevel: ErrorCorrectionLevel, maxPacketSize: Int) -> [DataPacketImage] {
         
-        let unusableWidth = DataPacket.headerSize
-        let maxPayloadSize = maxPacketSize - unusableWidth
+        let headerSize = DataPacket.headerSize
+        let maxPayloadSize = maxPacketSize - headerSize
         let dataSize = data.count
         
         // Split data
-        var PacketsData: [Data] = []
-        var frameIndex: UInt32 = 0
+        var dataPacketImage = [DataPacketImage]()
+        var frameNumber: UInt32 = 0
         var bytesSplit = 0
         while bytesSplit < dataSize {
+            
             // Get payload segment
             let bytesNotSplit = dataSize - bytesSplit
             let payloadSize = min(bytesNotSplit, maxPayloadSize)
@@ -138,24 +90,31 @@ class NestedQRCodeGenerator {
             let payload = data[payloadIndexRange]
             
             // Create packet
-            let packet = DataPacket(flagBits: 0, frameIndex: frameIndex, payload: payload)
+            let packet = DataPacket(flag: DataPacket.Flag.void,
+                                    frameNumber: frameNumber,
+                                    payload: payload)
             
-            // Append segment and increment
-            PacketsData.append(packet.archive())
-            frameIndex += 1
+            // Create image
+            let image = generateUnitSizedQRCode(for: packet.archive(), correctionLevel: correctionLevel)
+            let packetImage = DataPacketImage(image: image, frameNumber: frameNumber)
+            
+            // Append image and increment
+            dataPacketImage.append(packetImage)
             bytesSplit += payloadSize
+            frameNumber += 1
         }
         
         // Convert to QR code images
-        return PacketsData.map { generateUnitSizedQRCode(forData: $0, correctionLevel: correctionLevel) }
+        return dataPacketImage
     }
     
-    /// Returns a QR code in the form of an CIImage, where the each block is one pixel wide.
+    /// Returns a QR code in the form of an CIImage, where each module is one pixel wide.
+    ///
+    /// There is also a one-pixel wide quiet area surrounding the code.
     /// - Parameters:
     ///   - data: Binary data to encode in the QR code.
     ///   - correctionLevel: Correction level of the QR code.
-    /// - Returns: A QR code in the form of an CIImage, where the each block is one pixel wide.
-    private func generateUnitSizedQRCode(forData data: Data, correctionLevel: ErrorCorrectionLevel) -> CIImage {
+    private func generateUnitSizedQRCode(for data: Data, correctionLevel: ErrorCorrectionLevel) -> CIImage {
         filter.setValue(data, forKey: "inputMessage")
         filter.setValue(correctionLevel.rawValue, forKey: "inputCorrectionLevel")
         guard let outputImage = filter.outputImage else {
