@@ -29,14 +29,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
-    private enum State {
-        case generatingCodes
-        case waitingForManualStart
-        case calibrating
-        case calibrationFinishedAndWaitingForStart
-        case sending
-    }
-    
     // MARK: - IB Outlets, IB Actions and Related
     
     @IBOutlet weak var singleRenderView: MetalRenderView!
@@ -103,6 +95,14 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     
     // MARK: - State Management
     
+    private enum State {
+        case generatingCodes
+        case waitingForManualStart
+        case calibrating
+        case calibrationFinishedAndWaitingForStart
+        case sending
+    }
+    
     private var hasGeneratedCodes = false
     private var state: State = .generatingCodes
     
@@ -128,6 +128,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             case .sending:
                 state = .waitingForManualStart
             }
+            print("[State] State changed to: \(state)")
             
             // Perform actions
             switch state {
@@ -136,17 +137,14 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 clearRenderViewImages()
                 
             case .waitingForManualStart:
-                
-                if usesDuplexMode == false {
-                    displayStaticMetadataCodeImage()
-                }
+                displaySingleCodeImage(infoMetadataCodeImage)
                 
             case .calibrating:
                 break
                 
             case .calibrationFinishedAndWaitingForStart:
                 metadataCodeDisplaySubscription = nil
-                displayStaticMetadataCodeImage()
+                displaySingleCodeImage(readyMetadataCodeImage)
                 
             case .sending:
                 startDisplayingDataCodeImages()
@@ -183,10 +181,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         DispatchQueue.main.async {
             self.startButton.setTitle(startButtonTitle, for: .normal)
             self.startButton.isEnabled = startButtonIsEnabled
-            
-            if self.state == .calibrationFinishedAndWaitingForStart {
-                self.previewView.isHidden = true
-            }
         }
         
     }
@@ -225,7 +219,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     
     /* State variables */
     
-    private var metadataCodeImage: CIImage?
+    private var infoMetadataCodeImage: CIImage!
     
     // Metadata code images used during calibration. For duplex mode only.
     private var requestMetadataCodeImage: CIImage!
@@ -245,10 +239,8 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var dataCodeDisplaySubscription: AnyCancellable?
     
     
-    private func displayStaticMetadataCodeImage() {
-        
-        let image = usesDuplexMode ? readyMetadataCodeImage : metadataCodeImage
-        
+    private func displaySingleCodeImage(_ image: CIImage) {
+                
         DispatchQueue.main.async {
             switch self.sendMode {
                 
@@ -346,53 +338,53 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         // Load transmission queue
         transmissionQueue = DataPacketImageTransmissionQueue(dataPacketImages)
         
-        // Generate metadata codes
+        // Generate metadata code images
         let fileSize = messageData.count
         let fileNameWithExtension = fileName + "." + fileExtension
         
+        // Generate info metadata packet code image
+        guard let metadataPacket = MetadataPacket(flag: MetadataPacket.Flag.info,
+                                                  numberOfFrames: UInt32(frameCount),
+                                                  frameRate: UInt32(sendFrameRate),
+                                                  fileSize: UInt32(fileSize),
+                                                  fileName: fileNameWithExtension)
+            else {
+                fatalError("[SendVC] Failed to create info metadata packet.")
+        }
+        infoMetadataCodeImage = codeGenerator.generateMetadataCode(for: metadataPacket)
+        
         if usesDuplexMode {
                         
-            // Generate request metadata packet
+            // Generate request metadata packet code image
             guard let requestMetadataPacket = MetadataPacket(flag: MetadataPacket.Flag.request,
                                                              numberOfFrames: UInt32(frameCount),
                                                              frameRate: UInt32(sendFrameRate),
                                                              fileSize: UInt32(fileSize),
                                                              fileName: fileNameWithExtension)
                 else {
-                    fatalError("[SendVC] Failed to create metadata packet.")
+                    fatalError("[SendVC] Failed to create request metadata packet.")
             }
             requestMetadataCodeImage = codeGenerator.generateMetadataCode(for: requestMetadataPacket)
             
-            // Generate ready metadata packet
+            // Generate ready metadata packet code image
             guard let readyMetadataPacket = MetadataPacket(flag: MetadataPacket.Flag.ready,
                                                            numberOfFrames: UInt32(frameCount),
                                                            frameRate: UInt32(sendFrameRate),
                                                            fileSize: UInt32(fileSize),
                                                            fileName: fileNameWithExtension)
                 else {
-                    fatalError("[SendVC] Failed to create metadata packet.")
+                    fatalError("[SendVC] Failed to create ready metadata packet.")
             }
             readyMetadataCodeImage = codeGenerator.generateMetadataCode(for: readyMetadataPacket)
             
-        } else {
-            
-            guard let metadataPacket = MetadataPacket(flag: MetadataPacket.Flag.void,
-                                                      numberOfFrames: UInt32(frameCount),
-                                                      frameRate: UInt32(sendFrameRate),
-                                                      fileSize: UInt32(fileSize),
-                                                      fileName: fileNameWithExtension)
-                else {
-                    fatalError("[SendVC] Failed to create metadata packet.")
-            }
-            metadataCodeImage = codeGenerator.generateMetadataCode(for: metadataPacket)
         }
         
-        // Advance state
+        // Update state
         proceedToNextStateAndUpdateUI()
     }
     
     private func clearRenderViewImages() {
-                
+       
         let clearImage: CIImage = .clear
         DispatchQueue.main.async {
             self.singleRenderView.setImage(clearImage)
@@ -401,7 +393,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
-    // MARK: - Video Processing & Calibration
+    // MARK: - Video Processing, Calibration & Retransmission
     
     private let dataOutputQueue = DispatchQueue(label: "dataOutputQueue")
     private let histogramFilter = HistogramFilter()
@@ -516,6 +508,14 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     let roundTripTimeSamplesMean = roundTripTimeSamplesInDouble.average
                     let roundTripTimeSamplesStandardDeviation = roundTripTimeSamplesInDouble.standardDeviation
                     
+                    // Update calibrated parameters
+                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2 * pixelCountDeltaSamplesStandardDeviation
+                    calibratedPixelCountDeltaThreshold = Int(max(estimatedPixelCountDeltaThreshold, fixedPixelCountDeltaThreshold).rounded())
+                    
+                    calibratedRoundTripTimeMean = Int(roundTripTimeSamplesMean.rounded())
+                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up))
+                    
+                    // Print
                     print("[Calibration] Enough samples have been collected.")
                     
                     print("[Calibration] Pixel count delta samples: \(pixelCountDeltaSamples)")
@@ -525,14 +525,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     print("[Calibration] Round trip time samples: \(roundTripTimeSamples)")
                     print("[Calibration] Mean: \(roundTripTimeSamplesMean)")
                     print("[Calibration] Standard deviation: \(roundTripTimeSamplesStandardDeviation)")
-                    
-                    // Update calibrated parameters
-                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2 * pixelCountDeltaSamplesStandardDeviation
-                    calibratedPixelCountDeltaThreshold = Int(max(estimatedPixelCountDeltaThreshold, fixedPixelCountDeltaThreshold).rounded())
-                    
-                    calibratedRoundTripTimeMean = Int(roundTripTimeSamplesMean.rounded())
-                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up))
-                    
+
                     proceedToNextStateAndUpdateUI()
                     return
                 }
@@ -576,7 +569,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             
         case .sending:
            
-            
             // Calculate image histogram
             guard let imageBuffer = sampleBuffer.imageBuffer else { return }
             let inputImage = CIImage(cvImageBuffer: imageBuffer)
@@ -587,6 +579,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             if currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold {
                 
                 /// - TODO: retransmit
+                print("[SendVC] Retransmission request received.")
                 
             }
             

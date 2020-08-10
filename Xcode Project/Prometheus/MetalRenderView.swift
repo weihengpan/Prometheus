@@ -53,13 +53,15 @@ final class MetalRenderView : MTKView {
     ///   - scaleToFit: Whether to scale the image to fit the view.
     func setImage(_ image: CIImage?, scaleToFit: Bool = true) {
         
-        guard let image = image else { return }
+        guard let image = image else {
+            self.image = nil
+            return
+        }
         
-        let scale = UIScreen.main.scale
-        let boundsInPixels = self.bounds
-            .applying(.init(scaleX: scale, y: scale))
-        
-        if scaleToFit {
+        if scaleToFit && image.extent != .infinite {
+            let scale = UIScreen.main.scale
+            let boundsInPixels = self.bounds
+                .applying(.init(scaleX: scale, y: scale))
             let transform = scaleToFitTransform(from: image.extent, to: boundsInPixels)
             self.image = image.transformed(by: transform)
         } else {

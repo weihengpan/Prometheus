@@ -21,18 +21,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case recordAndDecode
     }
     
-    private enum State {
-        case waitingForMetadata
-        case calibrating
-        case metadataReceivedAndWaitingForStart
-        case receivingData
-        
-        case waitingForRecordingVideo
-        case recordingVideo
-        case decodingRecordedVideo
-        case finishedDecoding
-    }
-    
     // MARK: - IB Outlets, IB Actions and Related
     
     @IBOutlet weak var mainStackView: UIStackView!
@@ -92,6 +80,18 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     // MARK: - State Management
     
+    private enum State {
+        case waitingForMetadata
+        case calibrating
+        case waitingForReceivingData
+        case receivingData
+        
+        case waitingForRecordingVideo
+        case recordingVideo
+        case decodingRecordedVideo
+        case finishedDecoding
+    }
+    
     private func proceedToNextStateAndUpdateUI(updateUIOnly: Bool = false) {
         
         // Update state variables
@@ -101,13 +101,20 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 switch state {
                     
                 case .waitingForMetadata:
-                    state = .metadataReceivedAndWaitingForStart
+                    if usesDuplexMode {
+                        state = .calibrating
+                    } else {
+                        state = .waitingForReceivingData
+                    }
                     
-                case .metadataReceivedAndWaitingForStart:
+                case .calibrating:
+                    state = .waitingForReceivingData
+                    
+                case .waitingForReceivingData:
                     state = .receivingData
                     
                 case .receivingData:
-                    latestMetadataPacket = nil
+                    latestInfoMetadataPacket = nil
                     receivedDataPackets = []
                     receivedFrameNumbers = []
                     state = .waitingForMetadata
@@ -135,6 +142,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     break
                 }
             }
+            print("[State] State changed to: \(state)")
         }
         
         // Update UI
@@ -153,7 +161,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 startButtonTitle = "Start Receiving"
                 startButtonIsEnabled = false
                 
-            case .metadataReceivedAndWaitingForStart:
+            case .waitingForReceivingData:
                 startButtonTitle = "Start Receiving"
                 startButtonIsEnabled = true
                 
@@ -282,7 +290,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     var usesDuplexMode: Bool = false
 
     private var frameNumber = 0
-    private var latestMetadataPacket: MetadataPacket!
+    private var latestInfoMetadataPacket: MetadataPacket!
     private var totalCountOfFrames = 0
     private var receivedFrameNumbers = Set<UInt32>()
     private var receivedDataPackets = [DataPacket]()
@@ -523,22 +531,22 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
         switch state {
             
-        case .waitingForMetadata:
-            detectAndReceiveMetadataPackets(imageBuffer: imageBuffer)
+        case .waitingForMetadata, .calibrating:
+            detectMetadataPackets(imageBuffer: imageBuffer)
             
         case .receivingData:
-            detectAndReceiveDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+            detectDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
             
         case .decodingRecordedVideo:
-            detectAndReceiveMetadataPackets(imageBuffer: imageBuffer)
-            detectAndReceiveDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+            detectMetadataPackets(imageBuffer: imageBuffer)
+            detectDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
             
         default:
             break
         }
     }
     
-    func detectAndReceiveMetadataPackets(imageBuffer: CVPixelBuffer) {
+    func detectMetadataPackets(imageBuffer: CVPixelBuffer) {
         
         let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
@@ -547,62 +555,67 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
             guard let packet = MetadataPacket(archive: data) else { continue }
-            
-            // Extract properties
             guard let fileName = packet.fileName else {
                 print("[ReceiveVC] Warning: Failed to decode file name in metadata packet. Dropping metadata packet.")
                 continue
             }
-            latestMetadataPacket = packet
-            totalCountOfFrames = Int(packet.numberOfFrames)
-            print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName), flag: \(packet.flagString)")
-          
-            // Update metadata label
-            DispatchQueue.main.async {
-                self.metadataLabel.text = "No. of frames: \(packet.numberOfFrames)\nFile size: \(packet.fileSize)\nFile name: \(fileName)"
-            }
             
-            // Reply with torch
-            if packet.flag == MetadataPacket.Flag.request {
-                turnOnTorch(for: 1 / TimeInterval(latestMetadataPacket.frameRate))
-            }
-            
-            // Update state
-            if decodeMode == .liveDecode {
+            // Process metadata packets based on their flags
+            switch packet.flag {
                 
-                if usesDuplexMode == false ||
-                    (usesDuplexMode && packet.flag == MetadataPacket.Flag.ready) {
-                    proceedToNextStateAndUpdateUI()
+            case MetadataPacket.Flag.info:
+                guard state == .waitingForMetadata else { continue }
+                
+                latestInfoMetadataPacket = packet
+                totalCountOfFrames = Int(packet.numberOfFrames)
+                
+                // Update metadata label
+                DispatchQueue.main.async {
+                    self.metadataLabel.text = "No. of frames: \(packet.numberOfFrames)\nFile size: \(packet.fileSize)\nFile name: \(fileName)"
                 }
                 
+                // Update state
+                proceedToNextStateAndUpdateUI()
+                
+            case MetadataPacket.Flag.request:
+                guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
+                
+                // Reply with torch
+                if packet.flag == MetadataPacket.Flag.request {
+                    sendTorchSignal()
+                }
+                
+            case MetadataPacket.Flag.ready:
+                guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
+                
+                proceedToNextStateAndUpdateUI()
+                
+            default:
+                continue
             }
+            
+            print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName), flag: \(packet.flagString)")
         }
     }
     
-    func detectAndReceiveDataPackets(imageBuffer: CVPixelBuffer, caption: String) {
+    func detectDataPackets(imageBuffer: CVPixelBuffer, caption: String) {
         
-        guard let metadataPacket = latestMetadataPacket else {
-            print("[ReceiveVC] Warning: detectAndReceiveDataPackets(imageBuffer:caption:) called before metadata packet is received.")
+        guard let metadataPacket = latestInfoMetadataPacket else {
+            print("[ReceiveVC] Warning: \(#function) called before metadata packet is received.")
             return
         }
         
         let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
+            
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
             guard let packet = DataPacket(archive: data) else { continue }
             let frameNumber = packet.frameNumber
             
             guard receivedFrameNumbers.contains(frameNumber) == false else { continue }
-            receivedFrameNumbers.insert(frameNumber)
-            receivedDataPackets.append(packet)
-            let receivedDataPacketsCount = receivedDataPackets.count
-            DispatchQueue.main.async {
-                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
-            }
-            print("[ReceiveVC] \(caption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
                         
-            // Received all packets
+            // When all packets have been received
             if receivedDataPackets.count == totalCountOfFrames {
                 
                 guard let fileName = metadataPacket.fileName else { return }
@@ -653,7 +666,31 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                         self.proceedToNextStateAndUpdateUI()
                     }
                 }
+                
+                return
             }
+            
+            /// - TODO: Nested mode compatibility
+            // Detect dropped frames and send retransmission requests
+            if usesDuplexMode, let lastDataPacketFrameNumber = receivedDataPackets.last?.frameNumber {
+                if frameNumber - lastDataPacketFrameNumber > 1 {
+                    sendTorchSignal()
+                    let droppedFrameRange = (lastDataPacketFrameNumber + 1)...(frameNumber - 1)
+                    print("[ReceiveVC] Frame(s) \(droppedFrameRange) dropped, retransmission request sent.")
+                }
+            }
+            
+            // Add received data packet to storage
+            receivedFrameNumbers.insert(frameNumber)
+            receivedDataPackets.append(packet)
+            let receivedDataPacketsCount = receivedDataPackets.count
+            
+            // Update progress view
+            DispatchQueue.main.async {
+                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
+            }
+            
+            print("[ReceiveVC] \(caption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
         }
     }
     
@@ -672,6 +709,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     }
     
     // MARK: - Torch
+    
+    private func sendTorchSignal() {
+        turnOnTorch(for: 1 / TimeInterval(latestInfoMetadataPacket.frameRate))
+    }
     
     private func turnOnTorch(for duration: TimeInterval) {
         

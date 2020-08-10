@@ -28,8 +28,10 @@ struct MetadataPacket {
             return "request"
         case Flag.ready:
             return "ready"
+        case Flag.info:
+            return "info"
         default:
-            return "unknown"
+            return "unknown: \(flag)"
         }
     }
     var fileName: String? {
@@ -100,16 +102,17 @@ struct MetadataPacket {
     enum Flag {
         
         /// This flag carries no meaning, and should be ignored.
-        static let void: UInt32 =    0x00000000
+        static let void: UInt32 =     0x00000000
         
         /// Use this flag to inform the receiver to reply this frame.
-        static let request: UInt32 =   0xAAAAAAAA  // 0b10101010...
+        static let request: UInt32 =  0xAAAAAAAA  // 0b10101010...
         
         /// Use this flag to inform the receiver that the sender has collected
         /// enough information, and will start sending the data packets soon.
-        static let ready: UInt32 =   0x55555555  // 0b01010101...
+        static let ready: UInt32 =    0x55555555  // 0b01010101...
         
-        /// There is no use for this value yet.
-        //static let noReply: UInt32 = 0xFFFFFFFF  // 0b11111111...
+        /// Use this flag to inform the receiver that this metadata packet
+        /// is solely for providing information.
+        static let info: UInt32 =     0xFFFFFFFF  // 0b11111111...
     }
 }
