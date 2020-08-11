@@ -313,6 +313,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
+        print("did select")
+        
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if sendModeLabel.isDescendant(of: cell) {
@@ -320,6 +322,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         }
         
         if startButton.isDescendant(of: cell) {
+            print("segue")
             performSegue(withIdentifier: "showSendViewController", sender: nil)
         }
 
