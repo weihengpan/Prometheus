@@ -292,7 +292,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private var frameNumber = 0
     private var latestInfoMetadataPacket: MetadataPacket!
     private var totalCountOfFrames = 0
-    private var receivedFrameNumbers = Set<UInt32>()
+    private var receivedFrameNumbers = Set<Int>()
     private var receivedDataPackets = [DataPacket]()
     
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
@@ -535,16 +535,25 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             detectMetadataPackets(imageBuffer: imageBuffer)
             
         case .receivingData:
-            detectDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+            detectDataPackets(imageBuffer: imageBuffer, debugCaption: debugCaption)
             
         case .decodingRecordedVideo:
             detectMetadataPackets(imageBuffer: imageBuffer)
-            detectDataPackets(imageBuffer: imageBuffer, caption: debugCaption)
+            detectDataPackets(imageBuffer: imageBuffer, debugCaption: debugCaption)
             
         default:
             break
         }
     }
+    
+    /// A state variable controlling whether the calibration reply should be sent,
+    /// used to prevent sending out two replies in a row.
+    /// It is set to `false` each time the calibration reply is sent, and is set to
+    /// `true` after a time interval of `waitingTime`.
+    private var hasFinishedWaiting = true
+    
+    /// Minimum time between calibration replies.
+    private let waitingTime: TimeInterval = 0.1
     
     func detectMetadataPackets(imageBuffer: CVPixelBuffer) {
         
@@ -581,8 +590,14 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
                 
                 // Reply with torch
-                if packet.flag == MetadataPacket.Flag.request {
+                if hasFinishedWaiting {
                     sendTorchSignal()
+                    hasFinishedWaiting = false
+                    DispatchQueue.main.async {
+                        Timer.scheduledTimer(withTimeInterval: self.waitingTime, repeats: false) { _ in
+                            self.hasFinishedWaiting = true
+                        }
+                    }
                 }
                 
             case MetadataPacket.Flag.ready:
@@ -598,10 +613,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         }
     }
     
-    func detectDataPackets(imageBuffer: CVPixelBuffer, caption: String) {
+    func detectDataPackets(imageBuffer: CVPixelBuffer, debugCaption: String) {
         
+        guard state == .receivingData || state == .decodingRecordedVideo else { return }
         guard let metadataPacket = latestInfoMetadataPacket else {
-            print("[ReceiveVC] Warning: \(#function) called before metadata packet is received.")
+            print("[ReceiveVC] Warning: \(#function) called before info metadata packet is received.")
             return
         }
         
@@ -611,11 +627,22 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             guard let descriptor = code.symbolDescriptor else { continue }
             guard let data = descriptor.data else { continue }
             guard let packet = DataPacket(archive: data) else { continue }
-            let frameNumber = packet.frameNumber
+            let frameNumber = Int(packet.frameNumber)
             
+            // Discard packet if it has already been received
             guard receivedFrameNumbers.contains(frameNumber) == false else { continue }
+            
+            // Add received data packet to storage
+            receivedFrameNumbers.insert(frameNumber)
+            receivedDataPackets.append(packet)
+            let receivedDataPacketsCount = receivedDataPackets.count
+            
+            // Update progress view
+            DispatchQueue.main.async {
+                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
+            }
                         
-            // When all packets have been received
+            // Check if all packets have been received
             if receivedDataPackets.count == totalCountOfFrames {
                 
                 guard let fileName = metadataPacket.fileName else { return }
@@ -672,7 +699,16 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             /// - TODO: Nested mode compatibility
             // Detect dropped frames and send retransmission requests
-            if usesDuplexMode, let lastDataPacketFrameNumber = receivedDataPackets.last?.frameNumber {
+            if usesDuplexMode {
+                
+                var lastDataPacketFrameNumber: Int
+                if let number = receivedDataPackets.last?.frameNumber {
+                    lastDataPacketFrameNumber = Int(number)
+                } else {
+                    // This is necessary, otherwise the first packet's drop cannot be detected
+                    lastDataPacketFrameNumber = -1
+                }
+                
                 if frameNumber - lastDataPacketFrameNumber > 1 {
                     sendTorchSignal()
                     let droppedFrameRange = (lastDataPacketFrameNumber + 1)...(frameNumber - 1)
@@ -680,17 +716,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 }
             }
             
-            // Add received data packet to storage
-            receivedFrameNumbers.insert(frameNumber)
-            receivedDataPackets.append(packet)
-            let receivedDataPacketsCount = receivedDataPackets.count
-            
-            // Update progress view
-            DispatchQueue.main.async {
-                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
-            }
-            
-            print("[ReceiveVC] \(caption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
+            print("[ReceiveVC] \(debugCaption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
         }
     }
     
