@@ -3,7 +3,7 @@
 //  Prometheus
 //
 //  Created by PAN Weiheng on 2020/8/7.
-//  Copyright © 2020 PAN Weiheng. All rights reserved.
+//  Copyright © 2020 PAN Weiheng. Please refer to LICENSE for license information.
 //
 
 import Foundation
