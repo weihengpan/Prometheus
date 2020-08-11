@@ -293,6 +293,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     private var latestInfoMetadataPacket: MetadataPacket!
     private var totalCountOfFrames = 0
     private var receivedFrameNumbers = Set<Int>()
+    private var largestReceivedFrameNumber = -1
     private var receivedDataPackets = [DataPacket]()
     
     internal func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer, didOutput synchronizedDataCollection: AVCaptureSynchronizedDataCollection) {
@@ -550,10 +551,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     /// used to prevent sending out two replies in a row.
     /// It is set to `false` each time the calibration reply is sent, and is set to
     /// `true` after a time interval of `waitingTime`.
-    private var hasFinishedWaiting = true
+    private var canSendCalibrationReply = true
     
     /// Minimum time between calibration replies.
-    private let waitingTime: TimeInterval = 0.1
+    private let calibrationReplyWaitingTime: TimeInterval = 0.1
     
     func detectMetadataPackets(imageBuffer: CVPixelBuffer) {
         
@@ -590,12 +591,12 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
                 
                 // Reply with torch
-                if hasFinishedWaiting {
+                if canSendCalibrationReply {
                     sendTorchSignal()
-                    hasFinishedWaiting = false
+                    canSendCalibrationReply = false
                     DispatchQueue.main.async {
-                        Timer.scheduledTimer(withTimeInterval: self.waitingTime, repeats: false) { _ in
-                            self.hasFinishedWaiting = true
+                        Timer.scheduledTimer(withTimeInterval: self.calibrationReplyWaitingTime, repeats: false) { _ in
+                            self.canSendCalibrationReply = true
                         }
                     }
                 }
@@ -612,6 +613,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             print("[ReceiveVC] Metadata packet received. No. of frames: \(packet.numberOfFrames), file size: \(packet.fileSize), file name: \(fileName), flag: \(packet.flagString)")
         }
     }
+    
+    private var numberOfRetransmissionRequestsToSend = 0
     
     func detectDataPackets(imageBuffer: CVPixelBuffer, debugCaption: String) {
         
@@ -649,7 +652,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 
                 receivedDataPackets.sort(by: { $0.frameNumber < $1.frameNumber })
                 let combinedData = receivedDataPackets.lazy.map { $0.payload }.reduce(Data(), +)
-                print("[ReceiveVC] File \(fileName) received; \(combinedData.count) bytes of data.")
+                print("[ReceiveVC] File \"\(fileName)\" received; \(combinedData.count) bytes of data.")
                 
                 // Try to convert to string if the file extension is "txt"
                 if fileName.getFileExtension() == "txt" {
@@ -701,19 +704,19 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             // Detect dropped frames and send retransmission requests
             if usesDuplexMode {
                 
-                var lastDataPacketFrameNumber: Int
-                if let number = receivedDataPackets.last?.frameNumber {
-                    lastDataPacketFrameNumber = Int(number)
-                } else {
-                    // This is necessary, otherwise the first packet's drop cannot be detected
-                    lastDataPacketFrameNumber = -1
+                if frameNumber - largestReceivedFrameNumber > 1 {
+                    
+                    let droppedFrameRange = (largestReceivedFrameNumber + 1)...(frameNumber - 1)
+                    numberOfRetransmissionRequestsToSend = droppedFrameRange.count
+                    print("[Retransmission] Frame(s) \(droppedFrameRange) dropped, sending retransmission request(s).")
                 }
-                
-                if frameNumber - lastDataPacketFrameNumber > 1 {
-                    sendTorchSignal()
-                    let droppedFrameRange = (lastDataPacketFrameNumber + 1)...(frameNumber - 1)
-                    print("[ReceiveVC] Frame(s) \(droppedFrameRange) dropped, retransmission request sent.")
-                }
+            }
+            if numberOfRetransmissionRequestsToSend > 0 {
+                sendTorchSignal()
+                numberOfRetransmissionRequestsToSend -= 1
+            }
+            if frameNumber > largestReceivedFrameNumber {
+                largestReceivedFrameNumber = frameNumber
             }
             
             print("[ReceiveVC] \(debugCaption): Frame \(frameNumber) (\(packet.payload.count) bytes) received, \(receivedDataPacketsCount) frames received in total")
@@ -824,13 +827,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             widePreviewLayer.setSessionWithNoConnection(session)
             telephotoPreviewLayer.setSessionWithNoConnection(session)
             
-            // Find and configure dual camera
+            // Find dual camera
             let dualCamera = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back)!
-            if let videoFormat = videoFormat {
-                setVideoFormat(of: dualCamera, to: videoFormat)
-            }
-            let frameDuration = dualCamera.activeFormat.videoSupportedFrameRateRanges[0].maxFrameDuration
-            lockVideoFrameDuration(of: dualCamera, to: frameDuration)
             currentCamera = dualCamera
             
             // Add device input
@@ -841,6 +839,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 return
             }
             session.addInputWithNoConnections(dualCameraDeviceInput)
+            
+            // Configure camera
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: dualCamera, to: videoFormat)
+            }
+            let frameDuration = dualCamera.activeFormat.videoSupportedFrameRateRanges[0].minFrameDuration
+            lockVideoFrameDuration(of: dualCamera, to: frameDuration)
             
             // Find ports of the constituent devices of the device input
             guard let wideCameraVideoPort = dualCameraDeviceInput.ports(for: .video,
@@ -969,15 +974,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             // Setup preview layers
             widePreviewLayer.session = session
             
-            // Find and configure wide camera
+            // Find wide camera
             let wideCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)!
-            if let videoFormat = videoFormat {
-                setVideoFormat(of: wideCamera, to: videoFormat)
-            }
-            let frameDuration = wideCamera.activeFormat.videoSupportedFrameRateRanges[0].maxFrameDuration
-            lockVideoFrameDuration(of: wideCamera, to: frameDuration)
             currentCamera = wideCamera
-            
             
             // Add device input
             wideCameraDeviceInput = try? AVCaptureDeviceInput(device: wideCamera)
@@ -1013,6 +1012,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 }
                 session.addOutput(wideCameraMovieFileOutput)
             }
+            
+            // Configure camera
+            if let videoFormat = videoFormat {
+                setVideoFormat(of: wideCamera, to: videoFormat)
+            }
+            let frameDuration = wideCamera.activeFormat.videoSupportedFrameRateRanges[0].minFrameDuration
+            lockVideoFrameDuration(of: wideCamera, to: frameDuration)
 
             setupResult = .success(.singleCamera)
             print("[Session Configuration] Single camera session configuration is successful.")

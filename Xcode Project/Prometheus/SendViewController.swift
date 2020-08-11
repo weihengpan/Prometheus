@@ -143,11 +143,12 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 break
                 
             case .calibrationFinishedAndWaitingForStart:
-                metadataCodeDisplaySubscription = nil
                 displaySingleCodeImage(readyMetadataCodeImage)
                 
             case .sending:
-                startDisplayingDataCodeImages()
+                if usesDuplexMode == false {
+                    startDisplayingDataCodeImages()
+                }
             }
         }
         
@@ -230,13 +231,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     /// You should not alter the order of the elements in this array.
     private var dataPacketImages = [DataPacketImage]()
     
-    /// The queue used to hold data packet code images to be transmitted.
-    private var transmissionQueue = DataPacketImageTransmissionQueue()
-    
-    // For duplex mode only.
-    private var metadataCodeDisplaySubscription: AnyCancellable?
-    
-    private var dataCodeDisplaySubscription: AnyCancellable?
+    private var dataCodeDisplayTimerSubscription: AnyCancellable?
     
     
     private func displaySingleCodeImage(_ image: CIImage) {
@@ -254,51 +249,74 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
+    /// Start displaying data code images with a timer subscription.
+    ///
+    /// Only call this method in simplex mode.
     private func startDisplayingDataCodeImages() {
         
-        dataCodeDisplaySubscription = Timer.publish(every: 1.0 / sendFrameRate, on: .current, in: .common)
+        dataCodeDisplayTimerSubscription = Timer.publish(every: 1 / sendFrameRate, on: .current, in: .common)
             .autoconnect()
-            .sink { _ in
-                
-                guard let nextPacketImage = self.transmissionQueue.dequeue() else { return }
-                DispatchQueue.main.async {
-                    
-                    switch self.sendMode {
-                        
-                    case .single:
-                        self.singleRenderView.setImage(nextPacketImage.image)
-                        
-                    case .alternatingSingle:
-                        if nextPacketImage.frameNumber % 2 == 0 {
-                            
-                            self.topRenderView.setImage(nextPacketImage.image)
-                            self.bottomRenderView.setImage(nil)
-                            
-                        } else {
-                            
-                            self.bottomRenderView.setImage(nextPacketImage.image)
-                            self.topRenderView.setImage(nil)
-                        }
-                        
-                    case .nested:
-                        let largerCodeImage = nextPacketImage.image
-                        let smallerCodeImage = self.transmissionQueue.dequeue()?.image ?? .empty()
-                        self.singleRenderView.setNestedImages(larger: largerCodeImage, smaller: smallerCodeImage, sizeRatio: CGFloat(self.codesSideLengthRatio))
-                    }
-                }
-                
+            .sink { [unowned self] _ in
+                self.displayNextDataCodeImage()
         }
     }
     
     private func stopDisplayingDataCodeImages() {
         
-        guard let subscription = dataCodeDisplaySubscription else { return }
+        guard let subscription = dataCodeDisplayTimerSubscription else { return }
         subscription.cancel()
-        dataCodeDisplaySubscription = nil
+        dataCodeDisplayTimerSubscription = nil
         
         transmissionQueue.clear()
         
         clearRenderViewImages()
+    }
+    
+    /// Displays the next data code image.
+    ///
+    /// This method should be invoked in:
+    ///     1. `dataCodeDisplayTimerSubscription`'s block (simplex mode)
+    ///     2. `captureOutput(_:didOutput:from:)` (duplex mode)
+    private func displayNextDataCodeImage() {
+        
+        // Fetch next image, preferring retransmission queue
+        var nextPacketImage: DataPacketImage
+        if let image = self.retransmissionQueue.dequeue() {
+            nextPacketImage = image
+        } else {
+            guard let image = self.transmissionQueue.dequeue() else { return }
+            nextPacketImage = image
+        }
+        
+        // Display image
+        DispatchQueue.main.async {
+            
+            switch self.sendMode {
+                
+            case .single:
+                self.singleRenderView.setImage(nextPacketImage.image)
+                
+            case .alternatingSingle:
+                if nextPacketImage.frameNumber % 2 == 0 {
+                    
+                    self.topRenderView.setImage(nextPacketImage.image)
+                    self.bottomRenderView.setImage(nil)
+                    
+                } else {
+                    
+                    self.bottomRenderView.setImage(nextPacketImage.image)
+                    self.topRenderView.setImage(nil)
+                }
+                
+            case .nested:
+                let largerCodeImage = nextPacketImage.image
+                let smallerCodeImage = self.transmissionQueue.dequeue()?.image ?? .empty()
+                self.singleRenderView.setNestedImages(larger: largerCodeImage, smaller: smallerCodeImage, sizeRatio: CGFloat(self.codesSideLengthRatio))
+            }
+        }
+        
+        // Add image to transmission history
+        self.transmissionHistory.append(nextPacketImage)
     }
     
     private func generateCodeImagesAndLoadTransmissionQueue() {
@@ -336,7 +354,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         let frameCount = dataPacketImages.count
         
         // Load transmission queue
-        transmissionQueue = DataPacketImageTransmissionQueue(dataPacketImages)
+        transmissionQueue = Queue(dataPacketImages)
         
         // Generate metadata code images
         let fileSize = messageData.count
@@ -380,7 +398,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
         
         // Update state
-        proceedToNextStateAndUpdateUI()
+        if state == .generatingCodes {
+            proceedToNextStateAndUpdateUI()
+        }
     }
     
     private func clearRenderViewImages() {
@@ -426,7 +446,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var roundTripTimeSamples = [Int]()
     
     /// The minimum waiting time between the receipt of a reply and the next request.
-    private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.2
+    private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.15
     
     /// Whether enough time (equal to `minimumTimeToWaitUntilNextRequest`) has passed since the receipt of a reply.
     private var hasFinishedWaiting = true
@@ -448,9 +468,36 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private var calibratedRoundTripTimeMean: Int!
     
     /// The calibrated variation of the round trip time away from its mean.
+    /// This value is guaranteed to be at least 1.
     /// During retransmission, frames whose numbers are in the range `[FN-V, FN+V]` will be retransmitted,
     /// where `FN` is the estimated number of the lost frame, and `V` is the value of this variable.
     private var calibratedRoundTripTimeVariation: Int!
+    
+    /*
+     
+     Retransmission State Variables
+     
+     */
+    
+    /// A queue used to hold data packet code images to be transmitted.
+    ///
+    /// It is only dequeued if `retransmissionQueue` is empty.
+    private var transmissionQueue = Queue<DataPacketImage>()
+    
+    /// A queue for holding packet images to be retransmitted.
+    private var retransmissionQueue = Queue<DataPacketImage>()
+    
+    /// An array containing data packet images that has been transmitted, including retransmitted ones.
+    /// It is used for querying transmission history for retransmission.
+    ///
+    /// The latest image is at the end of the array.
+    private var transmissionHistory = [DataPacketImage]()
+    
+    /// Whether a retransmission request was detected in the last video frame.
+    private var retransmissionRequestDetectedLastFrame = false
+    
+    /// The total number of retransmission requests received in a row.
+    private var retransmissionRequestsCount = 0
     
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -509,11 +556,11 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     let roundTripTimeSamplesStandardDeviation = roundTripTimeSamplesInDouble.standardDeviation
                     
                     // Update calibrated parameters
-                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2 * pixelCountDeltaSamplesStandardDeviation
+                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2.5 * pixelCountDeltaSamplesStandardDeviation
                     calibratedPixelCountDeltaThreshold = Int(max(estimatedPixelCountDeltaThreshold, fixedPixelCountDeltaThreshold).rounded())
                     
                     calibratedRoundTripTimeMean = Int(roundTripTimeSamplesMean.rounded())
-                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up))
+                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up)) + 1
                     
                     // Print
                     print("[Calibration] Enough samples have been collected.")
@@ -569,19 +616,42 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             
         case .sending:
            
-            // Calculate image histogram
+            // Retransmit if necessary
+            if retransmissionRequestDetectedLastFrame == false
+                && retransmissionRequestsCount > 0 {
+                
+                let lastIndex = transmissionHistory.count - 1
+                let packetCount = 2 * calibratedRoundTripTimeVariation + retransmissionRequestsCount // 4
+                var leftEnd = lastIndex - 3 - calibratedRoundTripTimeMean - 2 * (retransmissionRequestsCount - 1) - calibratedRoundTripTimeVariation
+                var rightEnd = leftEnd + (packetCount - 1)
+                leftEnd = max(leftEnd, 0)
+                rightEnd = min(rightEnd, lastIndex)
+                let packets = transmissionHistory[leftEnd...rightEnd]
+                
+                retransmissionQueue.enqueue(contentsOf: packets)
+                print("[Retransmission] Retransmission scheduled in queue, packet numbers: \(packets.map { $0.frameNumber })")
+                
+                retransmissionRequestsCount = 0
+            }
+            
+            // Detect retransmission request
             guard let imageBuffer = sampleBuffer.imageBuffer else { return }
             let inputImage = CIImage(cvImageBuffer: imageBuffer)
             let histogram = histogramFilter.calculateHistogram(of: inputImage)
             let currentPixelCount = Int(histogram.last!)
+            let transmissionRequestDetected = currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold
             
-            // Detect retransmission request
-            if currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold {
-                
-                /// - TODO: retransmit
-                print("[SendVC] Retransmission request received.")
-                
+            // Update retransmission state variables
+            if transmissionRequestDetected {
+                retransmissionRequestDetectedLastFrame = true
+                retransmissionRequestsCount += 1
+                print("[Retransmission] Retransmission request received. Current count: \(retransmissionRequestsCount)")
+            } else {
+                retransmissionRequestDetectedLastFrame = false
             }
+
+            // Display next image
+            displayNextDataCodeImage()
             
         default:
             return
@@ -630,24 +700,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             return
         }
         self.frontCamera = frontCamera
-        do {
-            try frontCamera.lockForConfiguration()
-            
-            // Disable video HDR
-            if frontCamera.activeFormat.isVideoHDRSupported {
-                frontCamera.automaticallyAdjustsVideoHDREnabled = false
-                frontCamera.isVideoHDREnabled = false
-            }
-            
-            // Fix video frame rate
-            let sendFrameDuration = CMTime(value: 1, timescale: Int32(sendFrameRate))
-            frontCamera.activeVideoMinFrameDuration = sendFrameDuration
-            frontCamera.activeVideoMaxFrameDuration = sendFrameDuration
-                
-            frontCamera.unlockForConfiguration()
-        } catch let error {
-            print("[SendVC] Failed to lock front camera for configuration, error: \(error)")
-        }
         
         // Add input
         guard let frontCameraDeviceInput = try? AVCaptureDeviceInput(device: frontCamera) else {
@@ -669,6 +721,31 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         frontCameraVideoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
         frontCameraVideoDataOutput.alwaysDiscardsLateVideoFrames = false
         frontCameraVideoDataOutput.setSampleBufferDelegate(self, queue: dataOutputQueue)
+        
+        // Configure camera
+        do {
+            try frontCamera.lockForConfiguration()
+            
+            // Disable video HDR
+            if frontCamera.activeFormat.isVideoHDRSupported {
+                frontCamera.automaticallyAdjustsVideoHDREnabled = false
+                frontCamera.isVideoHDREnabled = false
+            }
+            
+            // Fix video frame rate
+            let sendFrameDuration = CMTime(value: 1, timescale: Int32(sendFrameRate))
+            frontCamera.activeVideoMinFrameDuration = sendFrameDuration
+            frontCamera.activeVideoMaxFrameDuration = sendFrameDuration
+            
+            frontCamera.unlockForConfiguration()
+        } catch let error {
+            print("[SendVC] Failed to lock front camera for configuration, error: \(error)")
+        }
+        
+        // Update state
+        if state == .generatingCodes {
+            proceedToNextStateAndUpdateUI()
+        }
     }
     
     private func startSession() {
