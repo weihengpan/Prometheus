@@ -45,37 +45,54 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     private func showProgressViewAndHideMetadataLabel() {
         
-        progressView.isHidden = false
-        progressView.progress = 0
-        if let index = mainStackView.arrangedSubviews.firstIndex(of: metadataLabel) {
-            mainStackView.insertArrangedSubview(progressView, at: index)
-        } else {
-            mainStackView.addArrangedSubview(progressView)
+        DispatchQueue.main.async {
+            
+            self.progressView.isHidden = false
+            self.progressView.progress = 0
+            if let index = self.mainStackView.arrangedSubviews.firstIndex(of: self.metadataLabel) {
+                self.mainStackView.insertArrangedSubview(self.progressView, at: index)
+            } else {
+                self.mainStackView.addArrangedSubview(self.progressView)
+            }
+            
+            self.mainStackView.removeArrangedSubview(self.metadataLabel)
+            self.metadataLabel.isHidden = true
         }
-        
-        mainStackView.removeArrangedSubview(metadataLabel)
-        metadataLabel.isHidden = true
         
     }
     
     private func showMetadataLabelAndHideProgressView() {
         
-        metadataLabel.isHidden = false
-        metadataLabel.text = ""
-        if let index = mainStackView.arrangedSubviews.firstIndex(of: progressView) {
-            mainStackView.insertArrangedSubview(metadataLabel, at: index)
-        } else {
-            mainStackView.addArrangedSubview(metadataLabel)
+        DispatchQueue.main.async {
+            
+            self.metadataLabel.isHidden = false
+            self.metadataLabel.text = ""
+            if let index = self.mainStackView.arrangedSubviews.firstIndex(of: self.progressView) {
+                self.mainStackView.insertArrangedSubview(self.metadataLabel, at: index)
+            } else {
+                self.mainStackView.addArrangedSubview(self.metadataLabel)
+            }
+            
+            self.mainStackView.removeArrangedSubview(self.progressView)
+            self.progressView.isHidden = true
         }
-        
-        mainStackView.removeArrangedSubview(progressView)
-        progressView.isHidden = true
         
     }
     
+    private func showPreviewStackView() {
+        
+        DispatchQueue.main.async {
+            self.previewStackView.isHidden = false
+            self.mainStackView.insertArrangedSubview(self.previewStackView, at: 0)
+        }
+    }
+    
     private func hidePreviewStackView() {
-        mainStackView.removeArrangedSubview(previewStackView)
-        previewStackView.isHidden = true
+        
+        DispatchQueue.main.async {
+            self.mainStackView.removeArrangedSubview(self.previewStackView)
+            self.previewStackView.isHidden = true
+        }
     }
     
     // MARK: - State Management
@@ -85,6 +102,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case calibrating
         case waitingForReceivingData
         case receivingData
+        case finishedReceivingData
         
         case waitingForRecordingVideo
         case recordingVideo
@@ -114,9 +132,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     state = .receivingData
                     
                 case .receivingData:
-                    latestInfoMetadataPacket = nil
-                    receivedDataPackets = []
-                    receivedFrameNumbers = []
+                    state = .finishedDecoding
+                    
+                case .finishedReceivingData:
                     state = .waitingForMetadata
                     
                 default:
@@ -128,15 +146,16 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 switch state {
                     
                 case .waitingForRecordingVideo:
-                    startVideoRecording()
                     state = .recordingVideo
                     
                 case .recordingVideo:
-                    stopVideoRecording()
                     state = .decodingRecordedVideo
                     
                 case .decodingRecordedVideo:
                     state = .finishedDecoding
+                    
+                case .finishedDecoding:
+                    state = .waitingForRecordingVideo
                     
                 default:
                     break
@@ -145,56 +164,68 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             print("[State] State changed to: \(state)")
         }
         
-        // Update UI
+        // Update UI and perform actions
+        var startButtonTitle: String
+        var startButtonIsEnabled: Bool
+        
+        switch state {
+        case .waitingForMetadata:
+            startButtonTitle = "Start Receiving"
+            startButtonIsEnabled = false
+            showMetadataLabelAndHideProgressView()
+            
+        case .calibrating:
+            startButtonTitle = "Start Receiving"
+            startButtonIsEnabled = false
+            
+        case .waitingForReceivingData:
+            startButtonTitle = "Start Receiving"
+            startButtonIsEnabled = true
+            
+        case .receivingData:
+            startButtonTitle = "Stop Receiving"
+            startButtonIsEnabled = true
+            showProgressViewAndHideMetadataLabel()
+            
+        case .finishedReceivingData:
+            resetStateVariablesForNewTransmission()
+            startButtonTitle = "Reset"
+            startButtonIsEnabled = true
+            
+            
+        case .waitingForRecordingVideo:
+            startSession()
+            startButtonTitle = "Start Recording"
+            startButtonIsEnabled = true
+            
+        case .recordingVideo:
+            startVideoRecording()
+            startButtonTitle = "Finish Recording"
+            startButtonIsEnabled = true
+            
+        case .decodingRecordedVideo:
+            stopVideoRecording()
+            stopSession()
+            startButtonTitle = "Decoding..."
+            startButtonIsEnabled = false
+            showProgressViewAndHideMetadataLabel()
+            hidePreviewStackView()
+            
+        case .finishedDecoding:
+            resetStateVariablesForNewTransmission()
+            startButtonTitle = "Reset"
+            startButtonIsEnabled = true
+            showMetadataLabelAndHideProgressView()
+            showPreviewStackView()
+        }
+        
         DispatchQueue.main.async {
-            
-            var startButtonTitle: String
-            var startButtonIsEnabled: Bool
-            
-            switch self.state {
-            case .waitingForMetadata:
-                startButtonTitle = "Start Receiving"
-                startButtonIsEnabled = false
-                self.showMetadataLabelAndHideProgressView()
-                
-            case .calibrating:
-                startButtonTitle = "Start Receiving"
-                startButtonIsEnabled = false
-                
-            case .waitingForReceivingData:
-                startButtonTitle = "Start Receiving"
-                startButtonIsEnabled = true
-                
-            case .receivingData:
-                startButtonTitle = "Stop Receiving"
-                startButtonIsEnabled = true
-                self.showProgressViewAndHideMetadataLabel()
-                
-            case .waitingForRecordingVideo:
-                startButtonTitle = "Start Recording"
-                startButtonIsEnabled = true
-                
-            case .recordingVideo:
-                startButtonTitle = "Finish Recording"
-                startButtonIsEnabled = true
-                
-            case .decodingRecordedVideo:
-                startButtonTitle = "Done"
-                startButtonIsEnabled = false
-                self.showProgressViewAndHideMetadataLabel()
-                self.hidePreviewStackView()
-                
-            case .finishedDecoding:
-                startButtonTitle = "Done"
-                startButtonIsEnabled = true
-                self.showMetadataLabelAndHideProgressView()
-            }
             
             self.startButton.setTitle(startButtonTitle, for: .normal)
             self.startButton.isEnabled = startButtonIsEnabled
         }
         
-        // Stop session
+        // Stop session when video recording is finished
         if updateUIOnly == false {
             
             switch state {
@@ -206,6 +237,26 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 break
             }
         }
+    }
+    
+    private func resetStateVariablesForNewTransmission() {
+     
+        frameNumber = 0
+        latestInfoMetadataPacket = nil
+        totalPacketCount = 0
+        receivedFrameNumbers = []
+        largestReceivedFrameNumber = -1
+        receivedDataPackets = []
+        
+        movieFileURLs = []
+        startedDecoding = false
+        
+        canSendCalibrationReply = true
+        shouldSendCalibrationReply = false
+        
+        numberOfRetransmissionRequestsToSend = 0
+        
+        print("[ReceiveVC] State variables have been reset for new transmission.")
     }
     
     // MARK: - View Controller Lifecycle
@@ -291,7 +342,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
 
     private var frameNumber = 0
     private var latestInfoMetadataPacket: MetadataPacket!
-    private var totalCountOfFrames = 0
+    private var totalPacketCount = 0
     private var receivedFrameNumbers = Set<Int>()
     private var largestReceivedFrameNumber = -1
     private var receivedDataPackets = [DataPacket]()
@@ -403,12 +454,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
     }
     
-    /// A Boolean preventing calling `startVideoFileDecoding()` twice.
+    /// A Boolean preventing `startVideoFileDecoding()` from being called twice.
     private var startedDecoding = false
     
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
                 
-        guard startedDecoding == false else { return }
+        guard startedDecoding == false, state == .decodingRecordedVideo else { return }
+        
         startedDecoding = true
         // Start decoding
         videoFileDecodingQueue.async {
@@ -470,10 +522,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             reader.add(output)
             
             // Start reading & decoding video
-            let totalNumberOfFrames = Float(videoTrack.nominalFrameRate) * Float(CMTimeGetSeconds(asset.duration))
             var frameCount: Float = 1
             reader.startReading()
-            while reader.status == .reading {
+            while reader.status == .reading && (latestInfoMetadataPacket == nil ||  receivedDataPackets.count < totalPacketCount) {
                 
                 // Autoreleasepool is required for releasing CMSampleBuffer, otherwise there will be memory leaks
                 var breakFlag = false
@@ -481,17 +532,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     
                     if let sampleBuffer = output.copyNextSampleBuffer() {
                         guard let imageBuffer = sampleBuffer.imageBuffer else { return }
-                        var image = CIImage(cvImageBuffer: imageBuffer) // remove this
+
                         let debugCaption = index == 0 ? "Wide" : "Telephoto"
                         detectCodes(imageBuffer: imageBuffer, debugCaption: debugCaption)
                         frameCount += 1
-                        image = image.clampedToExtent() // remove this
-                        
-                        // Update progress view
-                        let progress = frameCount / totalNumberOfFrames
-                        DispatchQueue.main.async {
-                            self.progressView.setProgress(progress, animated: false)
-                        }
                         
                     } else {
                         breakFlag = true
@@ -539,8 +583,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             detectDataPackets(imageBuffer: imageBuffer, debugCaption: debugCaption)
             
         case .decodingRecordedVideo:
-            detectMetadataPackets(imageBuffer: imageBuffer)
-            detectDataPackets(imageBuffer: imageBuffer, debugCaption: debugCaption)
+            if latestInfoMetadataPacket == nil {
+                detectMetadataPackets(imageBuffer: imageBuffer)
+            } else {
+                detectDataPackets(imageBuffer: imageBuffer, debugCaption: debugCaption)
+            }
             
         default:
             break
@@ -564,9 +611,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     func detectMetadataPackets(imageBuffer: CVPixelBuffer) {
         
-        if shouldSendCalibrationReply {
-            // Reply with torch
+        if shouldSendCalibrationReply && usesDuplexMode {
+
             if canSendCalibrationReply {
+                
+                // Reply with torch
                 sendTorchSignal()
                 
                 // Prevent extra replies
@@ -596,10 +645,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             switch packet.flag {
                 
             case MetadataPacket.Flag.info:
-                guard state == .waitingForMetadata else { continue }
+                guard state == .waitingForMetadata || state == .decodingRecordedVideo else { continue }
                 
                 latestInfoMetadataPacket = packet
-                totalCountOfFrames = Int(packet.numberOfFrames)
+                totalPacketCount = Int(packet.numberOfFrames)
                 
                 // Update metadata label
                 DispatchQueue.main.async {
@@ -607,7 +656,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 }
                 
                 // Update state
-                proceedToNextStateAndUpdateUI()
+                if state != .decodingRecordedVideo {
+                    proceedToNextStateAndUpdateUI()
+                }
                 
             case MetadataPacket.Flag.request:
                 guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
@@ -660,11 +711,11 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             // Update progress view
             DispatchQueue.main.async {
-                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalCountOfFrames)
+                self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalPacketCount)
             }
                         
             // Check if all packets have been received
-            if receivedDataPackets.count == totalCountOfFrames {
+            if receivedDataPackets.count == totalPacketCount {
                 
                 guard let fileName = metadataPacket.fileName else { return }
                 
@@ -706,12 +757,16 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     }
                 }
                 
-                stopSession()
+                if decodeMode == .liveDecode {
+                    stopSession()
+                }
                 
                 DispatchQueue.main.async {
                     self.present(activityViewController, animated: true) {
-                        self.startSession()
-                        self.proceedToNextStateAndUpdateUI()
+                        if self.decodeMode == .liveDecode {
+                            self.startSession()
+                            self.proceedToNextStateAndUpdateUI()
+                        }
                     }
                 }
                 
@@ -1046,6 +1101,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     private func startSession() {
         guard let session = self.session, state != .decodingRecordedVideo, state != .finishedDecoding else { return }
+        guard session.isRunning == false else { return }
         
         if case .success(_) = self.setupResult {
             sessionQueue.async {
@@ -1065,6 +1121,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     private func stopSession() {
         guard let session = self.session else { return }
+        guard session.isRunning else { return }
         sessionQueue.async {
             session.stopRunning()
         }

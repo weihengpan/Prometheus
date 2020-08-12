@@ -127,7 +127,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 state = .sending
                 
             case .sending:
-                state = .waitingForManualStart
+                state = .finishedSending
                 
             case .finishedSending:
                 state = .waitingForManualStart
@@ -135,7 +135,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             print("[State] State changed to: \(state)")
         }
         
-        // Update UI
+        // Update UI and perform actions
         var startButtonTitle: String
         var startButtonIsEnabled: Bool
         
@@ -149,6 +149,10 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         case .waitingForManualStart:
             startButtonTitle = usesDuplexMode ? "Start Calibration" : "Start Sending"
             startButtonIsEnabled = true
+            if usesDuplexMode == false {
+                stopDisplayingDataCodeImages()
+            }
+            loadTransmissionQueue()
             displaySingleCodeImage(infoMetadataCodeImage)
             
         case .calibrating:
@@ -375,9 +379,6 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
         let frameCount = dataPacketImages.count
         
-        // Load transmission queue
-        transmissionQueue = Queue(dataPacketImages)
-        
         // Generate metadata code images
         let fileSize = messageData.count
         let fileNameWithExtension = fileName + "." + fileExtension
@@ -423,6 +424,14 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         if state == .generatingCodes {
             proceedToNextStateAndUpdateUI()
         }
+    }
+    
+    /// Loads the data packet images to the transmission queue.
+    ///
+    /// You must call this method before the transmission starts.
+    private func loadTransmissionQueue() {
+        
+        transmissionQueue = Queue(dataPacketImages)
     }
     
     private func clearRenderViewImages() {
@@ -774,15 +783,23 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     }
     
     private func startSession() {
+        
+        guard let session = self.session else { return }
+        guard session.isRunning == false else { return }
+        
         sessionQueue.async {
-            self.session.startRunning()
+            session.startRunning()
             print("[SendVC] Session started, video format: \(self.frontCamera.activeFormat.description)")
         }
     }
     
     private func stopSession() {
+        
+        guard let session = self.session else { return }
+        guard session.isRunning else { return }
+        
         sessionQueue.async {
-            self.session.stopRunning()
+            session.stopRunning()
             print("[SendVC] Session stopped.")
         }
     }
