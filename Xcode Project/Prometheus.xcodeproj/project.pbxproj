@@ -21,7 +21,6 @@
 		4CA7CDB024D6D86700EC82E1 /* UserDefault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */; };
 		4CA7CDB224D6E04B00EC82E1 /* UserDefaultsEnum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */; };
 		4CAB37BD24DD872300B043CC /* String+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CAB37BC24DD872300B043CC /* String+.swift */; };
-		4CAB37BF24DE60E500B043CC /* DuplexViewContoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CAB37BE24DE60E500B043CC /* DuplexViewContoller.swift */; };
 		4CAB37C124DE6ED400B043CC /* HistogramFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CAB37C024DE6ED400B043CC /* HistogramFilter.swift */; };
 		4CC1A20524B7421F00A2CE62 /* MetadataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */; };
 		4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20724B7423B00A2CE62 /* Data+.swift */; };
@@ -72,7 +71,6 @@
 		4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefault.swift; sourceTree = "<group>"; };
 		4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsEnum.swift; sourceTree = "<group>"; };
 		4CAB37BC24DD872300B043CC /* String+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+.swift"; sourceTree = "<group>"; };
-		4CAB37BE24DE60E500B043CC /* DuplexViewContoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplexViewContoller.swift; sourceTree = "<group>"; };
 		4CAB37C024DE6ED400B043CC /* HistogramFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistogramFilter.swift; sourceTree = "<group>"; };
 		4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPacket.swift; sourceTree = "<group>"; };
 		4CC1A20724B7423B00A2CE62 /* Data+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+.swift"; sourceTree = "<group>"; };
@@ -184,7 +182,6 @@
 				4CE9163A24B448CD005F391A /* ReceiveViewController.swift */,
 				4CA7CDAB24D6AB6E00EC82E1 /* SendSettingsViewController.swift */,
 				4CE9163C24B448CD005F391A /* SendViewController.swift */,
-				4CAB37BE24DE60E500B043CC /* DuplexViewContoller.swift */,
 				4C7680C324E1548F00ACBEDB /* DataPacketImage.swift */,
 				4C7680C724E278E500ACBEDB /* Queue.swift */,
 				4CAB37C024DE6ED400B043CC /* HistogramFilter.swift */,
@@ -371,7 +368,6 @@
 				4CAB37C124DE6ED400B043CC /* HistogramFilter.swift in Sources */,
 				4C7680C824E278E500ACBEDB /* Queue.swift in Sources */,
 				4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */,
-				4CAB37BF24DE60E500B043CC /* DuplexViewContoller.swift in Sources */,
 				4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */,
 				4CA7CDAC24D6AB6E00EC82E1 /* SendSettingsViewController.swift in Sources */,
 				4CA7CDB224D6E04B00EC82E1 /* UserDefaultsEnum.swift in Sources */,

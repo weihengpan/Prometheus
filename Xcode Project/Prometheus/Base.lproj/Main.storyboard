@@ -828,7 +828,6 @@
                     <connections>
                         <segue destination="9Sf-iA-lAr" kind="relationship" relationship="viewControllers" id="lzU-1b-eKA"/>
                         <segue destination="liw-EX-2TD" kind="relationship" relationship="viewControllers" id="6Hu-Al-MGE"/>
-                        <segue destination="HQN-Ci-tIn" kind="relationship" relationship="viewControllers" id="1uj-db-gT9"/>
                     </connections>
                 </tabBarController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="HuB-VB-40B" sceneMemberID="firstResponder"/>
@@ -854,42 +853,6 @@
             </objects>
             <point key="canvasLocation" x="747.82608695652175" y="358.92857142857139"/>
         </scene>
-        <!--Duplex-->
-        <scene sceneID="50T-EI-3fa">
-            <objects>
-                <viewController id="HQN-Ci-tIn" customClass="DuplexViewController" customModule="Prometheus" customModuleProvider="target" sceneMemberID="viewController">
-                    <view key="view" contentMode="scaleToFill" id="Aj0-0k-LaT">
-                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="2hC-xe-TlJ" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
-                                <rect key="frame" x="20" y="96" width="374" height="665"/>
-                                <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" secondItem="2hC-xe-TlJ" secondAttribute="height" multiplier="9:16" id="KUT-G1-qyQ"/>
-                                </constraints>
-                            </view>
-                        </subviews>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
-                        <constraints>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="top" secondItem="1R8-WD-CCC" secondAttribute="top" priority="750" constant="20" id="4uw-KL-Vn0"/>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="top" relation="greaterThanOrEqual" secondItem="1R8-WD-CCC" secondAttribute="top" constant="20" id="7rr-70-HSE"/>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1R8-WD-CCC" secondAttribute="leading" constant="20" id="BVE-sl-lcW"/>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="leading" secondItem="1R8-WD-CCC" secondAttribute="leading" priority="750" constant="20" id="RcX-fE-Yuc"/>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="centerX" secondItem="1R8-WD-CCC" secondAttribute="centerX" id="V3S-ot-KGX"/>
-                            <constraint firstItem="2hC-xe-TlJ" firstAttribute="centerY" secondItem="1R8-WD-CCC" secondAttribute="centerY" id="yIH-Rp-zcs"/>
-                        </constraints>
-                        <viewLayoutGuide key="safeArea" id="1R8-WD-CCC"/>
-                    </view>
-                    <tabBarItem key="tabBarItem" title="Duplex" image="arrow.up.arrow.down" catalog="system" id="aFl-Xa-A0y"/>
-                    <connections>
-                        <outlet property="previewView" destination="2hC-xe-TlJ" id="tlp-O5-bqg"/>
-                    </connections>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="VDY-PH-JlX" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="743" y="1053"/>
-        </scene>
         <!--Receive-->
         <scene sceneID="vRo-bZ-OFm">
             <objects>
@@ -911,7 +874,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="arrow.up.arrow.down" catalog="system" width="128" height="96"/>
         <image name="square.and.arrow.down" catalog="system" width="121" height="128"/>
         <image name="square.and.arrow.up" catalog="system" width="115" height="128"/>
     </resources>
