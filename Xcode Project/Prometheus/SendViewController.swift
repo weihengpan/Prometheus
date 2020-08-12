@@ -101,6 +101,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         case calibrating
         case calibrationFinishedAndWaitingForStart
         case sending
+        case finishedSending
     }
     
     private var hasGeneratedCodes = false
@@ -127,29 +128,11 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 
             case .sending:
                 state = .waitingForManualStart
+                
+            case .finishedSending:
+                state = .waitingForManualStart
             }
             print("[State] State changed to: \(state)")
-            
-            // Perform actions
-            switch state {
-                
-            case .generatingCodes:
-                clearRenderViewImages()
-                
-            case .waitingForManualStart:
-                displaySingleCodeImage(infoMetadataCodeImage)
-                
-            case .calibrating:
-                break
-                
-            case .calibrationFinishedAndWaitingForStart:
-                displaySingleCodeImage(readyMetadataCodeImage)
-                
-            case .sending:
-                if usesDuplexMode == false {
-                    startDisplayingDataCodeImages()
-                }
-            }
         }
         
         // Update UI
@@ -161,10 +144,12 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         case .generatingCodes:
             startButtonTitle = usesDuplexMode ? "Start Calibration" : "Start Sending"
             startButtonIsEnabled = false
+            clearRenderViewImages()
             
         case .waitingForManualStart:
             startButtonTitle = usesDuplexMode ? "Start Calibration" : "Start Sending"
             startButtonIsEnabled = true
+            displaySingleCodeImage(infoMetadataCodeImage)
             
         case .calibrating:
             startButtonTitle = "Start Sending"
@@ -173,10 +158,19 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         case .calibrationFinishedAndWaitingForStart:
             startButtonTitle = "Start Sending"
             startButtonIsEnabled = true
+            displaySingleCodeImage(readyMetadataCodeImage)
             
         case .sending:
             startButtonTitle = "Stop Sending"
             startButtonIsEnabled = true
+            if usesDuplexMode == false {
+                startDisplayingDataCodeImages()
+            }
+            
+        case .finishedSending:
+            startButtonTitle = "Reset"
+            startButtonIsEnabled = true
+            resetStateVariablesForNewTransmission()
         }
         
         DispatchQueue.main.async {
@@ -184,6 +178,31 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             self.startButton.isEnabled = startButtonIsEnabled
         }
         
+    }
+    
+    /// Resets some state variables to their initial values, so that a new transmission may begin.
+    ///
+    /// You should only call this method when `state` transitions to `finishedSending`.
+    private func resetStateVariablesForNewTransmission() {
+        
+        dataCodeDisplayTimerSubscription = nil
+        
+        hasReceivedReply = true
+        lastPixelCount = nil
+        roundTripTime = 0
+        pixelCountDeltaSamples = []
+        roundTripTimeSamples = []
+        canSendCalibrationRequest = true
+        
+        calibratedPixelCountDeltaThreshold = nil
+        calibratedRoundTripTimeMean = nil
+        calibratedRoundTripTimeVariation = nil
+        
+        transmissionQueue.clear()
+        retransmissionQueue.clear()
+        transmissionHistory = []
+        retransmissionRequestDetectedLastFrame = false
+        retransmissionRequestsCount = 0
     }
 
     // MARK: - Code Generation & Display
@@ -228,7 +247,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     
     /// The data packet images, arranged in increasing order of their frame numbers.
     ///
-    /// You should not alter the order of the elements in this array.
+    /// Once set, this variable should not be mutated in a transmission.
     private var dataPacketImages = [DataPacketImage]()
     
     private var dataCodeDisplayTimerSubscription: AnyCancellable?
@@ -261,6 +280,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
+    /// Stops displaying data code images.
+    ///
+    /// You should only call this method in simplex mode.
     private func stopDisplayingDataCodeImages() {
         
         guard let subscription = dataCodeDisplayTimerSubscription else { return }
@@ -275,7 +297,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     /// Displays the next data code image.
     ///
     /// This method should be invoked in:
-    ///     1. `dataCodeDisplayTimerSubscription`'s block (simplex mode)
+    ///     1. `dataCodeDisplayTimerSubscription`'s block (simplex mode), or
     ///     2. `captureOutput(_:didOutput:from:)` (duplex mode)
     private func displayNextDataCodeImage() {
         
@@ -449,7 +471,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private let minimumTimeToWaitUntilNextRequest: TimeInterval = 0.15
     
     /// Whether enough time (equal to `minimumTimeToWaitUntilNextRequest`) has passed since the receipt of a reply.
-    private var hasFinishedWaiting = true
+    private var canSendCalibrationRequest = true
     
     /*
      
@@ -534,10 +556,10 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     print("[Calibration] White pixel count delta: \(pixelCountDelta)")
                     print("[Calibration] Round trip time: \(roundTripTime)")
                     
-                    hasFinishedWaiting = false
+                    canSendCalibrationRequest = false
                     DispatchQueue.main.async {
                         Timer.scheduledTimer(withTimeInterval: self.minimumTimeToWaitUntilNextRequest, repeats: false) { _ in
-                            self.hasFinishedWaiting = true
+                            self.canSendCalibrationRequest = true
                         }
                     }
                 }
@@ -556,11 +578,12 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     let roundTripTimeSamplesStandardDeviation = roundTripTimeSamplesInDouble.standardDeviation
                     
                     // Update calibrated parameters
-                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2.5 * pixelCountDeltaSamplesStandardDeviation
+                    let estimatedPixelCountDeltaThreshold = pixelCountDeltaSamplesMean - 2 * pixelCountDeltaSamplesStandardDeviation
                     calibratedPixelCountDeltaThreshold = Int(max(estimatedPixelCountDeltaThreshold, fixedPixelCountDeltaThreshold).rounded())
                     
                     calibratedRoundTripTimeMean = Int(roundTripTimeSamplesMean.rounded())
-                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up)) + 1
+                    calibratedRoundTripTimeVariation = Int((2 * roundTripTimeSamplesStandardDeviation).rounded(.up))
+                    calibratedRoundTripTimeVariation = max(calibratedRoundTripTimeVariation, 1)
                     
                     // Print
                     print("[Calibration] Enough samples have been collected.")
@@ -579,7 +602,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             }
             
             // Send calibration request
-            if hasReceivedReply && hasFinishedWaiting {
+            if hasReceivedReply && canSendCalibrationRequest {
                 
                 let image = requestMetadataCodeImage
                 DispatchQueue.main.async {
@@ -616,16 +639,26 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             
         case .sending:
            
+            // Detect retransmission request
+            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
+            let inputImage = CIImage(cvImageBuffer: imageBuffer)
+            let histogram = histogramFilter.calculateHistogram(of: inputImage)
+            let currentPixelCount = Int(histogram.last!)
+            let transmissionRequestDetected = currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold
+            if transmissionRequestDetected {
+                retransmissionRequestsCount += 1
+                print("[Retransmission] Retransmission request received. Current count: \(retransmissionRequestsCount)")
+            }
+
             // Retransmit if necessary
-            if retransmissionRequestDetectedLastFrame == false
-                && retransmissionRequestsCount > 0 {
+            if retransmissionRequestDetectedLastFrame && transmissionRequestDetected == false && retransmissionRequestsCount > 0 {
                 
                 let lastIndex = transmissionHistory.count - 1
-                let packetCount = 2 * calibratedRoundTripTimeVariation + retransmissionRequestsCount // 4
-                var leftEnd = lastIndex - 3 - calibratedRoundTripTimeMean - 2 * (retransmissionRequestsCount - 1) - calibratedRoundTripTimeVariation
-                var rightEnd = leftEnd + (packetCount - 1)
-                leftEnd = max(leftEnd, 0)
+                let packetCount = 2 * calibratedRoundTripTimeVariation + retransmissionRequestsCount
+                var rightEnd = lastIndex - calibratedRoundTripTimeMean - (retransmissionRequestsCount - 1) + calibratedRoundTripTimeVariation
+                var leftEnd = rightEnd - (packetCount - 1)
                 rightEnd = min(rightEnd, lastIndex)
+                leftEnd = max(leftEnd, 0)
                 let packets = transmissionHistory[leftEnd...rightEnd]
                 
                 retransmissionQueue.enqueue(contentsOf: packets)
@@ -634,18 +667,10 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 retransmissionRequestsCount = 0
             }
             
-            // Detect retransmission request
-            guard let imageBuffer = sampleBuffer.imageBuffer else { return }
-            let inputImage = CIImage(cvImageBuffer: imageBuffer)
-            let histogram = histogramFilter.calculateHistogram(of: inputImage)
-            let currentPixelCount = Int(histogram.last!)
-            let transmissionRequestDetected = currentPixelCount - lastPixelCount >= calibratedPixelCountDeltaThreshold
             
             // Update retransmission state variables
             if transmissionRequestDetected {
                 retransmissionRequestDetectedLastFrame = true
-                retransmissionRequestsCount += 1
-                print("[Retransmission] Retransmission request received. Current count: \(retransmissionRequestsCount)")
             } else {
                 retransmissionRequestDetectedLastFrame = false
             }

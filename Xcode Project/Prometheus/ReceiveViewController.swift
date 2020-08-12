@@ -553,10 +553,32 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     /// `true` after a time interval of `waitingTime`.
     private var canSendCalibrationReply = true
     
+    /// A state variable determining whether the receiver should send a calibration reply
+    /// in the next frame. It is used so that the receiver will send out the reply after
+    /// a sender's frame duration's time after request metadata code was detected,
+    /// immitating the actual transmission scenario.
+    private var shouldSendCalibrationReply = false
+    
     /// Minimum time between calibration replies.
     private let calibrationReplyWaitingTime: TimeInterval = 0.1
     
     func detectMetadataPackets(imageBuffer: CVPixelBuffer) {
+        
+        if shouldSendCalibrationReply {
+            // Reply with torch
+            if canSendCalibrationReply {
+                sendTorchSignal()
+                
+                // Prevent extra replies
+                canSendCalibrationReply = false
+                DispatchQueue.main.async {
+                    Timer.scheduledTimer(withTimeInterval: self.calibrationReplyWaitingTime, repeats: false) { _ in
+                        self.canSendCalibrationReply = true
+                    }
+                }
+            }
+            shouldSendCalibrationReply = false
+        }
         
         let codes = detectQRCodes(imageBuffer: imageBuffer)
         for code in codes {
@@ -581,7 +603,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 
                 // Update metadata label
                 DispatchQueue.main.async {
-                    self.metadataLabel.text = "No. of frames: \(packet.numberOfFrames)\nFile size: \(packet.fileSize)\nFile name: \(fileName)"
+                    self.metadataLabel.text = "\(fileName)\n\(packet.fileSize) bytes\n\(packet.numberOfFrames) packets"
                 }
                 
                 // Update state
@@ -590,14 +612,10 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             case MetadataPacket.Flag.request:
                 guard usesDuplexMode && state == .calibrating && decodeMode == .liveDecode else { continue }
                 
-                // Reply with torch
-                if canSendCalibrationReply {
-                    sendTorchSignal()
-                    canSendCalibrationReply = false
-                    DispatchQueue.main.async {
-                        Timer.scheduledTimer(withTimeInterval: self.calibrationReplyWaitingTime, repeats: false) { _ in
-                            self.canSendCalibrationReply = true
-                        }
+                let sendFrameDuration = 1 / TimeInterval(self.latestInfoMetadataPacket.frameRate)
+                DispatchQueue.main.async {
+                    Timer.scheduledTimer(withTimeInterval: sendFrameDuration, repeats: false) { _ in
+                        self.shouldSendCalibrationReply = true
                     }
                 }
                 
