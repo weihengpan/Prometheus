@@ -132,7 +132,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                     state = .receivingData
                     
                 case .receivingData:
-                    state = .finishedDecoding
+                    state = .finishedReceivingData
                     
                 case .finishedReceivingData:
                     state = .waitingForMetadata
