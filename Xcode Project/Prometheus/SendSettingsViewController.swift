@@ -234,6 +234,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let valueString = String(Int(value))
         frameRateLabel.text = valueString
         self.sendFrameRate = value
+        
+        // Reload footer
+        tableView.reloadData()
     }
     
     @IBAction func transmissionModeSegmentedControlValueChanged(_ sender: UISegmentedControl) {
@@ -246,6 +249,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         default:
             break
         }
+        
     }
     
     @objc private func versionStepperValueChanged(_ sender: UIStepper) {
@@ -267,6 +271,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             break
         }
         
+        // Reload footer
+        tableView.reloadData()
     }
     
     @objc private func eclStepperValueChanged(_ sender: UIStepper) {
@@ -289,6 +295,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             break
         }
         
+        // Reload footer
+        tableView.reloadData()
     }
     
     @IBAction func sizeRatioTextFieldEditingDidEnd(_ sender: UITextField) {
@@ -299,6 +307,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         guard let sizeRatio = Double(text) else { return }
         guard sizeRatio >= 0 && sizeRatio <= 1 else { return }
         self.sizeRatio = sizeRatio
+        
+        // Reload footer
+        tableView.reloadData()
     }
     
     // MARK: - Table View Delegate Methods
@@ -324,9 +335,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        
-        print("did select")
-        
+                
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if sendModeLabel.isDescendant(of: cell) {
@@ -339,6 +348,52 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         }
 
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    // MARK: - Table View Data Source Methods
+    
+    override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        
+        // Display code information and transmission rate
+        let codeSettingsSectionIndex = 1
+        if section == codeSettingsSectionIndex {
+            
+            var totalDataCapacityPerFrame: Int
+            var codeInformation = ""
+            if sendMode == .nested {
+                
+                let largerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: largerCodeVersion,
+                                                                            errorCorrectionLevel: largerCodeECL)!
+                let smallerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: smallerCodeVersion,
+                                                                             errorCorrectionLevel: smallerCodeECL)!
+                totalDataCapacityPerFrame = largerCodeDataCapacity + smallerCodeDataCapacity
+                
+                codeInformation += "Larger code data capacity: \(largerCodeDataCapacity) bytes\n"
+                codeInformation += "Smaller code data capacity: \(smallerCodeDataCapacity) bytes\n"
+                codeInformation += "Total data capacity: \(totalDataCapacityPerFrame) bytes\n"
+                
+            } else {
+                
+                totalDataCapacityPerFrame = QRCodeInformation.dataCapacity(forVersion: singleCodeVersion,
+                                                                           errorCorrectionLevel: singleCodeECL)!
+                codeInformation += "Code data capacity: \(totalDataCapacityPerFrame) bytes\n"
+            }
+            
+            let transmissionRate = totalDataCapacityPerFrame * Int(sendFrameRate)
+            let transmissionRateInformation = "Transmission rate: \(transmissionRate) B/s"
+            
+            return codeInformation + transmissionRateInformation
+        }
+        
+        return nil
+    }
+    
+    override func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        
+        guard let footerView = view as? UITableViewHeaderFooterView else { return }
+        
+        // Disable table section header full capitalization
+        footerView.textLabel?.text = footerView.textLabel?.text?.localizedCapitalized
     }
     
     // MARK: - Picker View Data Source Methods
