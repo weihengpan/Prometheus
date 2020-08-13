@@ -207,6 +207,8 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         transmissionHistory = []
         retransmissionRequestDetectedLastFrame = false
         retransmissionRequestsCount = 0
+        
+        print("[SendVC] Reset state variables for new transmission.")
     }
 
     // MARK: - Code Generation & Display
@@ -298,6 +300,8 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         clearRenderViewImages()
     }
     
+    private var topRenderViewWasLastUsed = false
+    
     /// Displays the next data code image.
     ///
     /// This method should be invoked in:
@@ -323,7 +327,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 self.singleRenderView.setImage(nextPacketImage.image)
                 
             case .alternatingSingle:
-                if nextPacketImage.frameNumber % 2 == 0 {
+                if self.topRenderViewWasLastUsed {
                     
                     self.topRenderView.setImage(nextPacketImage.image)
                     self.bottomRenderView.setImage(nil)
@@ -333,6 +337,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                     self.bottomRenderView.setImage(nextPacketImage.image)
                     self.topRenderView.setImage(nil)
                 }
+                self.topRenderViewWasLastUsed.toggle()
                 
             case .nested:
                 let largerCodeImage = nextPacketImage.image
@@ -348,7 +353,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private func generateCodeImagesAndLoadTransmissionQueue() {
         
         /// - TODO: select file from Files.app
-        let fileName = "Alice's Adventures in Wonderland"
+        let fileName = "Alice in Wonderland"
         let fileExtension = "txt"
         guard let url = Bundle.main.url(forResource: fileName, withExtension: fileExtension) else {
             fatalError("[SendVC] File not found.")
