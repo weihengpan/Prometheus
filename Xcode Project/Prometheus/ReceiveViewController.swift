@@ -43,42 +43,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     // MARK: - UI Management
     
-    private func showProgressViewAndHideMetadataLabel() {
-        
-        DispatchQueue.main.async {
-            
-            self.progressView.isHidden = false
-            self.progressView.progress = 0
-            if let index = self.mainStackView.arrangedSubviews.firstIndex(of: self.metadataLabel) {
-                self.mainStackView.insertArrangedSubview(self.progressView, at: index)
-            } else {
-                self.mainStackView.addArrangedSubview(self.progressView)
-            }
-            
-            self.mainStackView.removeArrangedSubview(self.metadataLabel)
-            self.metadataLabel.isHidden = true
-        }
-        
-    }
-    
-    private func showMetadataLabelAndHideProgressView() {
-        
-        DispatchQueue.main.async {
-            
-            self.metadataLabel.isHidden = false
-            self.metadataLabel.text = ""
-            if let index = self.mainStackView.arrangedSubviews.firstIndex(of: self.progressView) {
-                self.mainStackView.insertArrangedSubview(self.metadataLabel, at: index)
-            } else {
-                self.mainStackView.addArrangedSubview(self.metadataLabel)
-            }
-            
-            self.mainStackView.removeArrangedSubview(self.progressView)
-            self.progressView.isHidden = true
-        }
-        
-    }
-    
     private func showPreviewStackView() {
         
         DispatchQueue.main.async {
@@ -92,6 +56,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         DispatchQueue.main.async {
             self.mainStackView.removeArrangedSubview(self.previewStackView)
             self.previewStackView.isHidden = true
+        }
+    }
+    
+    private func clearMetadataLabelText() {
+        
+        DispatchQueue.main.async {
+            self.metadataLabel.text = ""
         }
     }
     
@@ -172,7 +143,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case .waitingForMetadata:
             startButtonTitle = "Start Receiving"
             startButtonIsEnabled = false
-            showMetadataLabelAndHideProgressView()
+            clearMetadataLabelText()
             
         case .calibrating:
             startButtonTitle = "Start Receiving"
@@ -185,7 +156,6 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case .receivingData:
             startButtonTitle = "Stop Receiving"
             startButtonIsEnabled = true
-            showProgressViewAndHideMetadataLabel()
             
         case .finishedReceivingData:
             resetStateVariablesForNewTransmission()
@@ -197,6 +167,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             startSession()
             startButtonTitle = "Start Recording"
             startButtonIsEnabled = true
+            clearMetadataLabelText()
             
         case .recordingVideo:
             startVideoRecording()
@@ -208,14 +179,12 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             stopSession()
             startButtonTitle = "Decoding..."
             startButtonIsEnabled = false
-            showProgressViewAndHideMetadataLabel()
             hidePreviewStackView()
             
         case .finishedDecoding:
             resetStateVariablesForNewTransmission()
             startButtonTitle = "Reset"
             startButtonIsEnabled = true
-            showMetadataLabelAndHideProgressView()
             showPreviewStackView()
         }
         
@@ -294,10 +263,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             telephotoPreviewView.removeFromSuperview()
         }
                 
-        // Hide progress view
-        mainStackView.removeArrangedSubview(progressView)
-        progressView.isHidden = true
     }
+    
+    
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -709,9 +677,12 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             receivedDataPackets.append(packet)
             let receivedDataPacketsCount = receivedDataPackets.count
             
-            // Update progress view
+            // Update progress view and label
+            let fileName = latestInfoMetadataPacket.fileName!
+            let fileSize = latestInfoMetadataPacket.fileSize
             DispatchQueue.main.async {
                 self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalPacketCount)
+                self.metadataLabel.text = "\(fileName)\n\(fileSize) bytes\n\(receivedDataPacketsCount)/\(self.totalPacketCount) packets received"
             }
                         
             // Check if all packets have been received

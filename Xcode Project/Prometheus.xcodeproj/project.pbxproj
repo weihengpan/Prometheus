@@ -25,7 +25,7 @@
 		4CC1A20524B7421F00A2CE62 /* MetadataPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */; };
 		4CC1A20824B7423B00A2CE62 /* Data+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20724B7423B00A2CE62 /* Data+.swift */; };
 		4CC1A20A24B7427200A2CE62 /* CIQRCodeDescriptor+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */; };
-		4CC1A20D24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */; };
+		4CC1A20D24B74C9700A2CE62 /* Alice in Wonderland.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4CC1A20C24B74C9700A2CE62 /* Alice in Wonderland.txt */; };
 		4CD8850324D944DB0076AFA3 /* ReceiveSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD8850224D944DB0076AFA3 /* ReceiveSettingsViewController.swift */; };
 		4CE9163724B448CD005F391A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163624B448CD005F391A /* AppDelegate.swift */; };
 		4CE9163924B448CD005F391A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE9163824B448CD005F391A /* SceneDelegate.swift */; };
@@ -75,7 +75,7 @@
 		4CC1A20424B7421F00A2CE62 /* MetadataPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPacket.swift; sourceTree = "<group>"; };
 		4CC1A20724B7423B00A2CE62 /* Data+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+.swift"; sourceTree = "<group>"; };
 		4CC1A20924B7427200A2CE62 /* CIQRCodeDescriptor+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIQRCodeDescriptor+.swift"; sourceTree = "<group>"; };
-		4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Alice's Adventures in Wonderland.txt"; sourceTree = "<group>"; };
+		4CC1A20C24B74C9700A2CE62 /* Alice in Wonderland.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Alice in Wonderland.txt"; sourceTree = "<group>"; };
 		4CD8850224D944DB0076AFA3 /* ReceiveSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiveSettingsViewController.swift; sourceTree = "<group>"; };
 		4CE9163324B448CD005F391A /* Prometheus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prometheus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE9163624B448CD005F391A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -135,7 +135,7 @@
 		4CC1A20B24B74C8100A2CE62 /* Example Files */ = {
 			isa = PBXGroup;
 			children = (
-				4CC1A20C24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt */,
+				4CC1A20C24B74C9700A2CE62 /* Alice in Wonderland.txt */,
 			);
 			path = "Example Files";
 			sourceTree = "<group>";
@@ -322,7 +322,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CC1A20D24B74C9700A2CE62 /* Alice's Adventures in Wonderland.txt in Resources */,
+				4CC1A20D24B74C9700A2CE62 /* Alice in Wonderland.txt in Resources */,
 				4CE9164524B448D0005F391A /* LaunchScreen.storyboard in Resources */,
 				4CE9164224B448D0005F391A /* Assets.xcassets in Resources */,
 				4CE9164024B448CD005F391A /* Main.storyboard in Resources */,
@@ -547,7 +547,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 412;
+				CURRENT_PROJECT_VERSION = 413;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.6;
@@ -569,7 +569,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 412;
+				CURRENT_PROJECT_VERSION = 413;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.6;

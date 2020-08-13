@@ -37,8 +37,11 @@
                                             </view>
                                         </subviews>
                                     </stackView>
+                                    <progressView opaque="NO" contentMode="scaleToFill" verticalHuggingPriority="750" progressViewStyle="bar" translatesAutoresizingMaskIntoConstraints="NO" id="VHX-CE-qM8">
+                                        <rect key="frame" x="0.0" y="334.5" width="374" height="2.5"/>
+                                    </progressView>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Akr-CX-5FZ">
-                                        <rect key="frame" x="0.0" y="334.5" width="374" height="0.0"/>
+                                        <rect key="frame" x="0.0" y="356" width="374" height="0.0"/>
                                         <constraints>
                                             <constraint firstAttribute="height" relation="greaterThanOrEqual" id="EwA-kf-223"/>
                                         </constraints>
@@ -46,9 +49,6 @@
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
-                                    <progressView opaque="NO" contentMode="scaleToFill" verticalHuggingPriority="750" progressViewStyle="bar" translatesAutoresizingMaskIntoConstraints="NO" id="VHX-CE-qM8">
-                                        <rect key="frame" x="0.0" y="354.5" width="374" height="2.5"/>
-                                    </progressView>
                                     <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="NJ0-So-Tby">
                                         <rect key="frame" x="170" y="376" width="34" height="30"/>
                                         <state key="normal" title="Start"/>
