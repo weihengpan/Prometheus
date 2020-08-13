@@ -213,6 +213,18 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
     }
     
+    private func enableDuplexMode() {
+        transmissionModeSegmentedControl.setEnabled(true, forSegmentAt: 1)
+    }
+    
+    private func disableDuplexMode() {
+        
+        transmissionModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
+        transmissionModeSegmentedControl.selectedSegmentIndex = 0
+        usesDuplexMode = false
+        transmissionModeSegmentedControlValueChanged(transmissionModeSegmentedControl)
+    }
+    
     // MARK: - Actions
     
     @objc private func frameRateStepperValueChanged(_ sender: UIStepper) {
@@ -358,6 +370,13 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
 
         // Persist value
         self.sendMode = sendMode
+        
+        // Enable/disable duplex mode
+        if sendMode == .nested {
+            disableDuplexMode()
+        } else {
+            enableDuplexMode()
+        }
         
         // Update cells' visibilities
         var visibleCellSubviews: [UIView]

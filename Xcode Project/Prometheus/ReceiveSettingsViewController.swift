@@ -143,6 +143,18 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         
     }
     
+    private func enableDuplexMode() {
+        transmissionModeSegmentedControl.setEnabled(true, forSegmentAt: 1)
+    }
+    
+    private func disableDuplexMode() {
+        
+        transmissionModeSegmentedControl.setEnabled(false, forSegmentAt: 1)
+        transmissionModeSegmentedControl.selectedSegmentIndex = 0
+        usesDuplexMode = false
+        transmissionModeSegmentedControlValueChanged(transmissionModeSegmentedControl)
+    }
+    
     // MARK: - Actions
     
     @objc private func cameraSegmentedControlValueChanged(_ sender: UISegmentedControl) {
@@ -161,6 +173,16 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         // Persist data
         let cameraType = CameraType.allCases[sender.selectedSegmentIndex]
         self.cameraType = cameraType
+        
+        // Enable/disable duplex mode
+        switch cameraType {
+            
+        case .dualCamera:
+            disableDuplexMode()
+            
+        case .singleCamera:
+            enableDuplexMode()
+        }
         
         // Update available video formats and picker view rows
         let multiCamOnly = cameraType == .dualCamera
@@ -197,6 +219,16 @@ class ReceiveSettingsViewController: UITableViewController, UIPickerViewDataSour
         let index = sender.selectedSegmentIndex
         let decodeMode = DecodeMode.allCases[index]
         self.decodeMode = decodeMode
+        
+        // Enable/disable duplex mode
+        switch decodeMode {
+            
+        case .recordAndDecode:
+            disableDuplexMode()
+            
+        case .liveDecode:
+            enableDuplexMode()
+        }
         
     }
     
