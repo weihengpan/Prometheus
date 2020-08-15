@@ -138,6 +138,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         // Update UI and perform actions
         var startButtonTitle: String
         var startButtonIsEnabled: Bool
+        var progress: Float?
         
         switch state {
         case .waitingForMetadata:
@@ -152,6 +153,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         case .waitingForReceivingData:
             startButtonTitle = "Start Receiving"
             startButtonIsEnabled = true
+            sessionQueue.async {
+                self.lockFocus(of: self.currentCamera, autofocusBeforeLock: true)
+            }
             
         case .receivingData:
             startButtonTitle = "Stop Receiving"
@@ -161,6 +165,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             resetStateVariablesForNewTransmission()
             startButtonTitle = "Reset"
             startButtonIsEnabled = true
+            progress = 0
             
             
         case .waitingForRecordingVideo:
@@ -185,6 +190,7 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             resetStateVariablesForNewTransmission()
             startButtonTitle = "Reset"
             startButtonIsEnabled = true
+            progress = 0
             showPreviewStackView()
         }
         
@@ -192,6 +198,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             self.startButton.setTitle(startButtonTitle, for: .normal)
             self.startButton.isEnabled = startButtonIsEnabled
+            if let progress = progress {
+                self.progressView.progress = progress
+            }
         }
         
         // Stop session when video recording is finished
@@ -619,8 +628,9 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
                 totalPacketCount = Int(packet.numberOfFrames)
                 
                 // Update metadata label
+                let fileSizeString = ByteCountFormatter.string(fromByteCount: Int64(packet.fileSize), countStyle: .file)
                 DispatchQueue.main.async {
-                    self.metadataLabel.text = "\(fileName)\n\(packet.fileSize) bytes\n\(packet.numberOfFrames) packets"
+                    self.metadataLabel.text = "\(fileName)\n\(fileSizeString)\n\(packet.numberOfFrames) packets"
                 }
                 
                 // Update state
@@ -678,11 +688,13 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             let receivedDataPacketsCount = receivedDataPackets.count
             
             // Update progress view and label
-            let fileName = latestInfoMetadataPacket.fileName!
-            let fileSize = latestInfoMetadataPacket.fileSize
+            guard let infoMetadataPacket = latestInfoMetadataPacket else { return }
+            guard let fileName = infoMetadataPacket.fileName else { continue }
+            let fileSize = infoMetadataPacket.fileSize
+            let fileSizeString = ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
             DispatchQueue.main.async {
                 self.progressView.progress = Float(receivedDataPacketsCount) / Float(self.totalPacketCount)
-                self.metadataLabel.text = "\(fileName)\n\(fileSize) bytes\n\(receivedDataPacketsCount)/\(self.totalPacketCount) packets received"
+                self.metadataLabel.text = "\(fileName)\n\(fileSizeString)\n\(receivedDataPacketsCount)/\(self.totalPacketCount) packets received"
             }
                         
             // Check if all packets have been received
@@ -1132,9 +1144,23 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
             
             camera.unlockForConfiguration()
         } catch let error {
-            print("[ReceiveVC] Failed to lock front camera for configuration, error: \(error)")
+            print("[ReceiveVC] Failed to lock camera for configuration, error: \(error)")
         }
         
+    }
+    
+    private func lockFocus(of camera: AVCaptureDevice, autofocusBeforeLock: Bool) {
+        let focusMode: AVCaptureDevice.FocusMode = autofocusBeforeLock ? .autoFocus : .locked
+        
+        do {
+            try camera.lockForConfiguration()
+            
+            camera.focusMode = focusMode
+            
+            camera.unlockForConfiguration()
+        } catch let error {
+            print("[ReceiveVC] Failed to lock camera for configuration, error: \(error)")
+        }
     }
         
 }

@@ -190,6 +190,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     private func resetStateVariablesForNewTransmission() {
         
         dataCodeDisplayTimerSubscription = nil
+        topRenderViewWasLastUsed = false
         
         hasReceivedReply = true
         lastPixelCount = nil
@@ -216,6 +217,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     var sendMode: CodeType = .nested
     var usesDuplexMode: Bool = false
     var sendFrameRate = 15.0
+    
+    var fileData: NSData?
+    var fileNameWithExtension: String?
     
     /// For single code modes only.
     var singleCodeVersion = 13
@@ -352,17 +356,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
     
     private func generateCodeImagesAndLoadTransmissionQueue() {
         
-        /// - TODO: select file from Files.app
-        let fileName = "Alice in Wonderland"
-        let fileExtension = "txt"
-        guard let url = Bundle.main.url(forResource: fileName, withExtension: fileExtension) else {
-            fatalError("[SendVC] File not found.")
-        }
-        guard let message = try? String(contentsOf: url) else {
-            fatalError("[SendVC] Failed to read file.")
-        }
-        guard let messageData = message.data(using: .utf8) else {
-            fatalError("[SendVC] Failed to encode message in UTF-8.")
+        guard let fileNameWithExtension = fileNameWithExtension,
+            let fileData = fileData as Data? else {
+                fatalError("[SendVC] File data is not set.")
         }
         
         // Generate data codes
@@ -370,13 +366,13 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
             
         case .single, .alternatingSingle:
             dataPacketImages = codeGenerator
-                .generateDataPacketImages(for: messageData,
+                .generateDataPacketImages(for: fileData,
                                           correctionLevel: singleCodeErrorCorrectionLevel,
                                           maxPacketSize: singleCodeMaxPacketSize)
             
         case .nested:
             dataPacketImages = codeGenerator
-                .generateDataPacketImagesForNestedDisplay(for: messageData,
+                .generateDataPacketImagesForNestedDisplay(for: fileData,
                                                           largerCodeCorrectionLevel: largerCodeErrorCorrectionLevel,
                                                           largerCodeMaxPacketSize: largerCodeMaxPacketSize,
                                                           smallerCodeCorrectionLevel: smallerCodeErrorCorrectionLevel,
@@ -385,8 +381,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         let frameCount = dataPacketImages.count
         
         // Generate metadata code images
-        let fileSize = messageData.count
-        let fileNameWithExtension = fileName + "." + fileExtension
+        let fileSize = fileData.count
         
         // Generate info metadata packet code image
         guard let metadataPacket = MetadataPacket(flag: MetadataPacket.Flag.info,
@@ -726,7 +721,7 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         session = AVCaptureSession()
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        session.sessionPreset = .hd1280x720
+        session.sessionPreset = .inputPriority
         
         // Set up preview layer
         DispatchQueue.main.async {
@@ -770,6 +765,9 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
                 frontCamera.automaticallyAdjustsVideoHDREnabled = false
                 frontCamera.isVideoHDREnabled = false
             }
+            
+            // Set active format
+            setVideoFormat(of: frontCamera, width: 1280, height: 720, frameRate: 60, binned: false)
             
             // Fix video frame rate
             let sendFrameDuration = CMTime(value: 1, timescale: Int32(sendFrameRate))
@@ -820,4 +818,29 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
 
+    private func setVideoFormat(of device: AVCaptureDevice, width: Int, height: Int, frameRate: Int, binned: Bool) {
+        
+        var selectedFormat: AVCaptureDevice.Format?
+        for format in device.formats {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            let maxFrameRate = format.videoSupportedFrameRateRanges[0].maxFrameRate
+            if Int(dimensions.width) == width && Int(dimensions.height) == height && Int(maxFrameRate) == frameRate && format.isVideoBinned == binned {
+                selectedFormat = format
+            }
+        }
+        
+        guard let format = selectedFormat else {
+            print("[SendVC] Failed to set device format becuase the device does not support the format.")
+            return
+        }
+        
+        do {
+            try device.lockForConfiguration()
+            device.activeFormat = format
+            device.unlockForConfiguration()
+        } catch let error {
+            print("[SendVC] Could not lock device \(device.localizedName) for changing format, reason: \(error)")
+        }
+        
+    }
 }

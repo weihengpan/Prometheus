@@ -176,19 +176,19 @@
 			children = (
 				4CE9163624B448CD005F391A /* AppDelegate.swift */,
 				4CE9163824B448CD005F391A /* SceneDelegate.swift */,
-				4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */,
-				4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */,
 				4CD8850224D944DB0076AFA3 /* ReceiveSettingsViewController.swift */,
 				4CE9163A24B448CD005F391A /* ReceiveViewController.swift */,
 				4CA7CDAB24D6AB6E00EC82E1 /* SendSettingsViewController.swift */,
 				4CE9163C24B448CD005F391A /* SendViewController.swift */,
+				4CE9166824B45A0C005F391A /* PreviewView.swift */,
+				4C8C46A824B6056800113A51 /* MetalRenderView.swift */,
 				4C7680C324E1548F00ACBEDB /* DataPacketImage.swift */,
 				4C7680C724E278E500ACBEDB /* Queue.swift */,
 				4CAB37C024DE6ED400B043CC /* HistogramFilter.swift */,
-				4CE9166824B45A0C005F391A /* PreviewView.swift */,
-				4C8C46A824B6056800113A51 /* MetalRenderView.swift */,
 				4C820F5924B5E379004A8229 /* NestedQRCodeGenerator.swift */,
 				4C8E2C5B24D1996E00499777 /* QRCodeInformation.swift */,
+				4CA7CDAF24D6D86700EC82E1 /* UserDefault.swift */,
+				4CA7CDB124D6E04B00EC82E1 /* UserDefaultsEnum.swift */,
 				4CC1A20E24B74CCA00A2CE62 /* Packets */,
 				4CC1A20624B7423100A2CE62 /* Extensions */,
 				4CC1A20B24B74C8100A2CE62 /* Example Files */,
@@ -547,7 +547,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 413;
+				CURRENT_PROJECT_VERSION = 414;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.6;
@@ -569,7 +569,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 413;
+				CURRENT_PROJECT_VERSION = 414;
 				DEVELOPMENT_TEAM = S28872AG34;
 				INFOPLIST_FILE = Prometheus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.6;

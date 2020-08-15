@@ -8,6 +8,7 @@
 
 import UIKit
 import AVFoundation
+import MobileCoreServices
 
 class SendSettingsViewController: UITableViewController, UIPickerViewDataSource, UIPickerViewDelegate {
     
@@ -44,7 +45,18 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     @UserDefault(key: "senderUsesDuplexMode", defaultValue: false)
     var usesDuplexMode: Bool
     
+    var selectedFileNameWithExtension: String? {
+        didSet {
+            selectedFileLabel.text = selectedFileNameWithExtension
+            reloadSectionFooters()
+        }
+    }
+    
+    var selectedFileData: NSData?
+    
     // MARK: - IB Outlets
+    
+    @IBOutlet weak var selectedFileLabel: UILabel!
     
     @IBOutlet weak var sendModeLabel: UILabel!
     @IBOutlet weak var sendModePickerView: UIPickerView!
@@ -85,6 +97,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         dynamicCellSubviews = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel, sizeRatioTextField]
         dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellSubviews.count))
         
+        setupSelectedFileLabelAndLoadExampleFile()
         setupCodeTypeLabelAndPickerView()
         setupFrameRateStepper()
         setupTransmissionModeSegmentedControl()
@@ -102,6 +115,8 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if let sendVC = segue.destination as? SendViewController {
             
+            sendVC.fileData = self.selectedFileData
+            sendVC.fileNameWithExtension = self.selectedFileNameWithExtension
             sendVC.sendMode = self.sendMode
             sendVC.sendFrameRate = self.sendFrameRate
             sendVC.usesDuplexMode = self.usesDuplexMode
@@ -116,6 +131,23 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     }
     
     // MARK: - UI Management
+    
+    private func setupSelectedFileLabelAndLoadExampleFile() {
+        
+        // Fetch example file URL
+        let fileName = "Alice in Wonderland"
+        let fileExtension = "txt"
+        let fileNameWithExtension = (fileName as NSString).appendingPathExtension(fileExtension)!
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: fileExtension) else {
+            fatalError("[Send Settings] Example file \"\(fileNameWithExtension)\" not found in bundle.")
+        }
+        selectedFileNameWithExtension = fileNameWithExtension
+        
+        // Read and load example file
+        let data = try! Data(contentsOf: url)
+        selectedFileData = data as NSData
+                
+    }
         
     private func setupCodeTypeLabelAndPickerView() {
         
@@ -207,8 +239,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         self.sendModePickerView.isHidden = !isVisible
         UIView.animate(withDuration: 0.3) {
             // Trigger table view update
-            self.tableView.beginUpdates()
-            self.tableView.endUpdates()
+            self.updateCellVisibilities()
         }
         
     }
@@ -225,6 +256,15 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         transmissionModeSegmentedControlValueChanged(transmissionModeSegmentedControl)
     }
     
+    private func updateCellVisibilities() {
+        tableView.beginUpdates()
+        tableView.endUpdates()
+    }
+    
+    private func reloadSectionFooters() {
+        tableView.reloadData()
+    }
+    
     // MARK: - Actions
     
     @objc private func frameRateStepperValueChanged(_ sender: UIStepper) {
@@ -236,7 +276,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         self.sendFrameRate = value
         
         // Reload footer
-        tableView.reloadData()
+        reloadSectionFooters()
     }
     
     @IBAction func transmissionModeSegmentedControlValueChanged(_ sender: UISegmentedControl) {
@@ -272,7 +312,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         }
         
         // Reload footer
-        tableView.reloadData()
+        reloadSectionFooters()
     }
     
     @objc private func eclStepperValueChanged(_ sender: UIStepper) {
@@ -296,7 +336,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         }
         
         // Reload footer
-        tableView.reloadData()
+        reloadSectionFooters()
     }
     
     @IBAction func sizeRatioTextFieldEditingDidEnd(_ sender: UITextField) {
@@ -309,7 +349,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         self.sizeRatio = sizeRatio
         
         // Reload footer
-        tableView.reloadData()
+        reloadSectionFooters()
     }
     
     // MARK: - Table View Delegate Methods
@@ -320,10 +360,17 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let defaultHeight = super.tableView(tableView, heightForRowAt: indexPath)
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
+        // Set selected file name cell visibility
+        if selectedFileLabel.isDescendant(of: cell) {
+            return (selectedFileNameWithExtension == nil) ? 0 : defaultHeight
+        }
+        
+        // Set picker view visiblities
         if sendModePickerView.isDescendant(of: cell) {
             return sendModePickerView.isHidden ? 0 : defaultHeight
         }
         
+        // Set code setting cells visibilities
         if let label = dynamicCellSubviews.first(where: { $0.isDescendant(of: cell) }) {
             let index = dynamicCellSubviews.firstIndex(of: label)!
             let isVisible = dynamicCellsVisibilities[index]
@@ -338,12 +385,26 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
                 
         let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
+        // "Select File" cell
+        let selectFileCellIndexPath = IndexPath(row: 1, section: 0)
+        if indexPath == selectFileCellIndexPath {
+            
+            // Present document picker
+            let dataTypeUTI = kUTTypeData as String
+            let pickerViewController = UIDocumentPickerViewController(documentTypes: [dataTypeUTI], in: .open)
+            pickerViewController.delegate = self
+            pickerViewController.shouldShowFileExtensions = true
+            pickerViewController.allowsMultipleSelection = false
+            self.present(pickerViewController, animated: true) {
+                //self.reloadSectionFooters()
+            }
+        }
+        
         if sendModeLabel.isDescendant(of: cell) {
             changeCodeTypePickerViewVisibility(to: sendModePickerView.isHidden)
         }
         
         if startButton.isDescendant(of: cell) {
-            print("segue")
             performSegue(withIdentifier: "showSendViewController", sender: nil)
         }
 
@@ -352,40 +413,26 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     
     // MARK: - Table View Data Source Methods
     
+    private let codeSettingsSectionIndex = 2
+    
+    private let fileSelectionSectionIndex = 0
+
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         
-        // Display code information and transmission rate
-        let codeSettingsSectionIndex = 1
-        if section == codeSettingsSectionIndex {
+        switch section {
             
-            var totalDataCapacityPerFrame: Int
-            var codeInformation = ""
-            if sendMode == .nested {
-                
-                let largerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: largerCodeVersion,
-                                                                            errorCorrectionLevel: largerCodeECL)!
-                let smallerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: smallerCodeVersion,
-                                                                             errorCorrectionLevel: smallerCodeECL)!
-                totalDataCapacityPerFrame = largerCodeDataCapacity + smallerCodeDataCapacity
-                
-                codeInformation += "Larger code data capacity: \(largerCodeDataCapacity) bytes\n"
-                codeInformation += "Smaller code data capacity: \(smallerCodeDataCapacity) bytes\n"
-                codeInformation += "Total data capacity: \(totalDataCapacityPerFrame) bytes\n"
-                
-            } else {
-                
-                totalDataCapacityPerFrame = QRCodeInformation.dataCapacity(forVersion: singleCodeVersion,
-                                                                           errorCorrectionLevel: singleCodeECL)!
-                codeInformation += "Code data capacity: \(totalDataCapacityPerFrame) bytes\n"
-            }
-            
-            let transmissionRate = totalDataCapacityPerFrame * Int(sendFrameRate)
-            let transmissionRateInformation = "Transmission rate: \(transmissionRate) B/s"
-            
-            return codeInformation + transmissionRateInformation
+        case codeSettingsSectionIndex:
+            // Display code information and transmission information
+            return codeSettingsSectionFooterString
+        
+        case fileSelectionSectionIndex:
+            // Display file size information
+            return fileSelectionSectionFooterString
+
+        default:
+            return nil
         }
         
-        return nil
     }
     
     override func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
@@ -393,7 +440,17 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         guard let footerView = view as? UITableViewHeaderFooterView else { return }
         
         // Disable table section header full capitalization
-        footerView.textLabel?.text = footerView.textLabel?.text?.localizedCapitalized
+        switch section {
+            
+        case codeSettingsSectionIndex:
+            footerView.textLabel?.text = codeSettingsSectionFooterString
+            
+        case fileSelectionSectionIndex:
+            footerView.textLabel?.text = fileSelectionSectionFooterString
+            
+        default:
+            return
+        }
     }
     
     // MARK: - Picker View Data Source Methods
@@ -433,6 +490,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             enableDuplexMode()
         }
         
+        // Update code settings footer
+        reloadSectionFooters()
+        
         // Update cells' visibilities
         var visibleCellSubviews: [UIView]
         switch sendMode {
@@ -447,7 +507,117 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
             dynamicCellsVisibilities[index] = visibleCellSubviews.contains(label)
         }
         
-        tableView.beginUpdates()
-        tableView.endUpdates()
+        updateCellVisibilities()
     }
+}
+
+extension SendSettingsViewController : UIDocumentPickerDelegate {
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        
+        guard urls.count == 1 else {
+            print("[Send Settings] Warning: more than one files selected in document picker. Cancelling actions.")
+            return
+        }
+        
+        // Request file access permission
+        let url = urls.first!
+        let nsURL = url as NSURL
+        guard nsURL.startAccessingSecurityScopedResource() else {
+            print("[Send Settings] Failed access security scoped resource at url: \(url)")
+            return
+        }
+        defer { nsURL.stopAccessingSecurityScopedResource() }
+        
+        // Read file data
+        var data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch let error {
+            print("[Send Settings] Failed to open file at url: \(url), error: \(error)")
+            return
+        }
+        selectedFileData = data as NSData
+        
+        // Get file name
+        let urlString = url.absoluteString
+        let fileNameWithExtensionInPercentEncoding = (urlString as NSString).lastPathComponent
+        guard let fileNameWithExtension = fileNameWithExtensionInPercentEncoding.removingPercentEncoding else {
+            print("[Send Settings] File name \(fileNameWithExtensionInPercentEncoding) contains invalid percent-encoding sequence.")
+            return
+        }
+        selectedFileNameWithExtension = fileNameWithExtension
+        print("[Send Settings] File \"\(fileNameWithExtension)\" selected, size: \(data.count) bytes.")
+        
+        // Update cell
+        let selectedFileCell = tableView.cellForRow(at: IndexPath(row: 0, section: 0))
+        selectedFileCell?.accessoryType = .checkmark
+        updateCellVisibilities()
+    }
+    
+    // MARK: - Utilities
+    
+    private var codeSettingsSectionFooterString: String {
+        
+        var displayedString = ""
+        
+        // Code information
+        var totalDataCapacityPerFrame: Int
+        var codeInformation = ""
+        if sendMode == .nested {
+            
+            let largerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: largerCodeVersion,
+                                                                        errorCorrectionLevel: largerCodeECL)!
+            let smallerCodeDataCapacity = QRCodeInformation.dataCapacity(forVersion: smallerCodeVersion,
+                                                                         errorCorrectionLevel: smallerCodeECL)!
+            totalDataCapacityPerFrame = largerCodeDataCapacity + smallerCodeDataCapacity
+            
+            let largerCodeModuleSideLength = 1.0 / Double(2 + QRCodeInformation.sideLengthInModules(forVersion: largerCodeVersion)!)
+            let smallerCodeModuleSideLength = 1.0 * sizeRatio / Double(2 + QRCodeInformation.sideLengthInModules(forVersion: smallerCodeVersion)!)
+            let moduleSideLengthRatio = smallerCodeModuleSideLength / largerCodeModuleSideLength
+            
+            codeInformation += "Larger code data capacity: \(largerCodeDataCapacity) bytes\n"
+            codeInformation += "Smaller code data capacity: \(smallerCodeDataCapacity) bytes\n"
+            codeInformation += "Total data capacity: \(totalDataCapacityPerFrame) bytes\n"
+            codeInformation += String(format: "Module side length ratio: %.3lf\n", moduleSideLengthRatio)
+            
+        } else {
+            
+            totalDataCapacityPerFrame = QRCodeInformation.dataCapacity(forVersion: singleCodeVersion,
+                                                                       errorCorrectionLevel: singleCodeECL)!
+            codeInformation += "Code data capacity: \(totalDataCapacityPerFrame) bytes\n"
+        }
+        displayedString += codeInformation
+        
+        // Transmission information
+        let transmissionRate = totalDataCapacityPerFrame * Int(sendFrameRate)
+        let transmissionRateString = ByteCountFormatter.string(fromByteCount: Int64(transmissionRate), countStyle: .file) + "/s"
+        let transmissionRateInformation = "Transmission rate: " + transmissionRateString + "\n"
+        displayedString += transmissionRateInformation
+        
+        if let fileData = selectedFileData {
+            let fileSize = fileData.count
+            let transmissionTime: TimeInterval = TimeInterval(fileSize) / TimeInterval(transmissionRate)
+            
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .abbreviated
+            formatter.allowedUnits = [.day, .hour, .minute, .second]
+            let transmissionTimeString = formatter.string(from: transmissionTime)!
+            let transmissionTimeInformation = "Estimated transmission time: " + transmissionTimeString
+            displayedString += transmissionTimeInformation
+        }
+        
+        return displayedString
+    }
+    
+    private var fileSelectionSectionFooterString: String? {
+        
+        guard let fileData = selectedFileData else { return nil }
+        
+        let fileSize = fileData.count
+        let fileSizeString = ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
+        return "File size: \(fileSizeString)"
+        
+    }
+    
 }
