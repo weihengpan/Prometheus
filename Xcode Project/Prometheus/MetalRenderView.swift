@@ -80,8 +80,8 @@ final class MetalRenderView : MTKView {
     func setNestedImages(larger largerImage: CIImage, smaller smallerImage: CIImage, sizeRatio: CGFloat) {
     
         // Scale and position the smaller image
-        let xInset = largerImage.extent.width * (1 - sizeRatio)
-        let yInset = largerImage.extent.height * (1 - sizeRatio)
+        let xInset = largerImage.extent.width * (1 - sizeRatio) / 2
+        let yInset = largerImage.extent.height * (1 - sizeRatio) / 2
         let insets = UIEdgeInsets(top: yInset, left: xInset, bottom: yInset, right: xInset)
         let smallerImageTargetExtent = largerImage.extent.inset(by: insets)
         let positionedSmallerImage = smallerImage.transformed(by: scaleToFitTransform(from: smallerImage.extent, to: smallerImageTargetExtent))
