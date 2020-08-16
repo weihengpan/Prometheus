@@ -97,7 +97,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         dynamicCellSubviews = [codeVersionLabel, codeECLLabel, largerCodeVersionLabel, largerCodeECLLabel, smallerCodeVersionLabel, smallerCodeECLLabel, sizeRatioTextField]
         dynamicCellsVisibilities = .init(repeatElement(true, count: dynamicCellSubviews.count))
         
-        setupSelectedFileLabelAndLoadExampleFile()
+        loadExampleFile()
         setupCodeTypeLabelAndPickerView()
         setupFrameRateStepper()
         setupTransmissionModeSegmentedControl()
@@ -132,7 +132,7 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
     
     // MARK: - UI Management
     
-    private func setupSelectedFileLabelAndLoadExampleFile() {
+    private func loadExampleFile() {
         
         // Fetch example file URL
         let fileName = "Alice in Wonderland"
@@ -352,6 +352,58 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         reloadSectionFooters()
     }
     
+    private func presentSelectFileActionSheet(_ sender: UIView) {
+        
+        let actionSheetViewController = UIAlertController(title: nil, message: "Select file from...", preferredStyle: .actionSheet)
+        
+        let filesAction = UIAlertAction(title: "Files", style: .default) { _ in
+            self.presentFilePicker()
+        }
+        let photoLibraryAction = UIAlertAction(title: "Photo Library", style: .default) { _ in
+            self.presentPhotoLibraryImagePicker(sourceType: .photoLibrary)
+        }
+        let cameraAction = UIAlertAction(title: "Camera", style: .default) { _ in
+            self.presentPhotoLibraryImagePicker(sourceType: .camera)
+        }
+        let exampleFileAction = UIAlertAction(title: "Example File", style: .default) { _ in
+            self.loadExampleFile()
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        actionSheetViewController.addAction(filesAction)
+        actionSheetViewController.addAction(photoLibraryAction)
+        actionSheetViewController.addAction(cameraAction)
+        actionSheetViewController.addAction(exampleFileAction)
+        actionSheetViewController.addAction(cancelAction)
+        
+        if let popoverController = actionSheetViewController.popoverPresentationController {
+            popoverController.sourceView = sender
+            popoverController.sourceRect = sender.bounds
+        }
+        self.present(actionSheetViewController, animated: true, completion: nil)
+    }
+    
+    private func presentFilePicker() {
+        
+        let dataTypeUTI = kUTTypeData as String
+        let pickerViewController = UIDocumentPickerViewController(documentTypes: [dataTypeUTI], in: .open)
+        pickerViewController.delegate = self
+        pickerViewController.shouldShowFileExtensions = true
+        pickerViewController.allowsMultipleSelection = false
+        
+        self.present(pickerViewController, animated: true, completion: nil)
+    }
+    
+    private func presentPhotoLibraryImagePicker(sourceType: UIImagePickerController.SourceType) {
+        
+        let imagePickerController = UIImagePickerController()
+        imagePickerController.delegate = self
+        imagePickerController.sourceType = sourceType
+        imagePickerController.allowsEditing = false
+        
+        self.present(imagePickerController, animated: true, completion: nil)
+    }
+    
     // MARK: - Table View Delegate Methods
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -389,15 +441,9 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         let selectFileCellIndexPath = IndexPath(row: 1, section: 0)
         if indexPath == selectFileCellIndexPath {
             
-            // Present document picker
-            let dataTypeUTI = kUTTypeData as String
-            let pickerViewController = UIDocumentPickerViewController(documentTypes: [dataTypeUTI], in: .open)
-            pickerViewController.delegate = self
-            pickerViewController.shouldShowFileExtensions = true
-            pickerViewController.allowsMultipleSelection = false
-            self.present(pickerViewController, animated: true) {
-                //self.reloadSectionFooters()
-            }
+            // Present action sheet
+            guard let cell = tableView.cellForRow(at: indexPath) else { return }
+            presentSelectFileActionSheet(cell)
         }
         
         if sendModeLabel.isDescendant(of: cell) {
@@ -509,51 +555,6 @@ class SendSettingsViewController: UITableViewController, UIPickerViewDataSource,
         
         updateCellVisibilities()
     }
-}
-
-extension SendSettingsViewController : UIDocumentPickerDelegate {
-    
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        
-        guard urls.count == 1 else {
-            print("[Send Settings] Warning: more than one files selected in document picker. Cancelling actions.")
-            return
-        }
-        
-        // Request file access permission
-        let url = urls.first!
-        let nsURL = url as NSURL
-        guard nsURL.startAccessingSecurityScopedResource() else {
-            print("[Send Settings] Failed access security scoped resource at url: \(url)")
-            return
-        }
-        defer { nsURL.stopAccessingSecurityScopedResource() }
-        
-        // Read file data
-        var data: Data
-        do {
-            data = try Data(contentsOf: url)
-        } catch let error {
-            print("[Send Settings] Failed to open file at url: \(url), error: \(error)")
-            return
-        }
-        selectedFileData = data as NSData
-        
-        // Get file name
-        let urlString = url.absoluteString
-        let fileNameWithExtensionInPercentEncoding = (urlString as NSString).lastPathComponent
-        guard let fileNameWithExtension = fileNameWithExtensionInPercentEncoding.removingPercentEncoding else {
-            print("[Send Settings] File name \(fileNameWithExtensionInPercentEncoding) contains invalid percent-encoding sequence.")
-            return
-        }
-        selectedFileNameWithExtension = fileNameWithExtension
-        print("[Send Settings] File \"\(fileNameWithExtension)\" selected, size: \(data.count) bytes.")
-        
-        // Update cell
-        let selectedFileCell = tableView.cellForRow(at: IndexPath(row: 0, section: 0))
-        selectedFileCell?.accessoryType = .checkmark
-        updateCellVisibilities()
-    }
     
     // MARK: - Utilities
     
@@ -619,5 +620,94 @@ extension SendSettingsViewController : UIDocumentPickerDelegate {
         return "File size: \(fileSizeString)"
         
     }
+}
+
+extension SendSettingsViewController : UIDocumentPickerDelegate {
     
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        
+        guard urls.count == 1 else {
+            print("[Send Settings] Warning: more than one files selected in document picker. Cancelling actions.")
+            return
+        }
+        
+        // Request file access permission
+        let url = urls.first!
+        let nsURL = url as NSURL
+        guard nsURL.startAccessingSecurityScopedResource() else {
+            print("[Send Settings] Failed access security scoped resource at url: \(url)")
+            return
+        }
+        defer { nsURL.stopAccessingSecurityScopedResource() }
+        
+        // Read file data
+        var data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch let error {
+            print("[Send Settings] Failed to open file at url: \(url), error: \(error)")
+            return
+        }
+        selectedFileData = data as NSData
+        
+        // Get file name
+        let urlString = url.absoluteString
+        let fileNameWithExtension = (urlString as NSString).lastPathComponent
+        selectedFileNameWithExtension = fileNameWithExtension
+        print("[Send Settings] File \"\(fileNameWithExtension)\" selected, size: \(data.count) bytes.")
+        
+    }
+    
+}
+
+extension SendSettingsViewController : UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        
+        picker.dismiss(animated: true)
+        
+        // Get media file URL
+        var url: URL?
+        if let imageURL = info[.imageURL] as? NSURL {
+            url = imageURL as URL
+        } else if let movieURL = info[.mediaURL] as? NSURL {
+            url = movieURL as URL
+        }
+        
+        if let url = url {
+            
+            /* When the file is picked from the photo library */
+            
+            // Read file data
+            var data: Data
+            do {
+                data = try Data(contentsOf: url)
+            } catch let error {
+                print("[Send Settings] Failed to open file at url: \(url), error: \(error)")
+                return
+            }
+            selectedFileData = data as NSData
+            
+            // Get file name
+            let urlString = url.absoluteString
+            let fileNameWithExtensionInPercentEncoding = (urlString as NSString).lastPathComponent
+            guard let fileNameWithExtension = fileNameWithExtensionInPercentEncoding.removingPercentEncoding else {
+                print("[Send Settings] File name \(fileNameWithExtensionInPercentEncoding) contains invalid percent-encoding sequence.")
+                return
+            }
+            selectedFileNameWithExtension = fileNameWithExtension
+            print("[Send Settings] File \"\(fileNameWithExtension)\" selected, size: \(data.count) bytes.")
+            
+        } else {
+            
+            /* When the image is taken with the camera */
+            
+            guard let image = info[.originalImage] as? UIImage else { return }
+            
+            selectedFileData = image.jpegData(compressionQuality: 0.75) as NSData?
+            
+            let uuidString = UUID().uuidString as NSString
+            selectedFileNameWithExtension = uuidString.appendingPathExtension("jpeg")
+        }
+    }
 }
