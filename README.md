@@ -1,5 +1,7 @@
 # Prometheus
 
+<img src="Icon%20Preview.png" width=200 />
+
 *Prometheus* is an open source iOS app for QR code-based screen-to-camera communication written in Swift for research purposes. 
 
 It works by splitting file data into segments and encoding them into QR codes. The QR codes are then displayed by the sender one by one. Meanwhile, the receiver decodes the displayed QR codes with its camera. Finally, the file is reconstructed from the QR codes' payloads.
