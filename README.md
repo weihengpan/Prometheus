@@ -1,12 +1,14 @@
 # Prometheus
 
-<img src="Icon%20Preview.png" width=200 />
+<img src="Preview%20Images/Icon%20Preview.png" width=200 />
 
 *Prometheus* is an open source iOS app for QR code-based screen-to-camera communication written in Swift for research purposes. 
 
 It works by splitting file data into segments and encoding them into QR codes. The QR codes are then displayed by the sender one by one. Meanwhile, the receiver decodes the displayed QR codes with its camera. Finally, the file is reconstructed from the QR codes' payloads.
 
 In experiments, *Prometheus* achieved a maximum stable throughput of 204 kbps.
+
+<img src="Preview%20Images/Transfer.gif" width=200 />
 
 ## System Requirements
 
@@ -50,6 +52,16 @@ Due to the nature of screen-to-camera communication, you are likely to encounter
   - Set the sender's screen brightness to maximum. This improves QR code readability.
   - Screen reflections will reduce QR code readability. Try reposition the two devices if there is strong glare on the sender's screen when viewed from the receiver.
   - Duplex mode works best when there is no bright regions in the sender's view frame. Try reposition the two devices if there are bright regions in the sender's view frame.
+  
+## Screenshots
+
+<img src="Preview%20Images/Screenshot 1.JPG" width=200 />
+
+<img src="Preview%20Images/Screenshot 2.jpg" width=200 />
+
+<img src="Preview%20Images/Screenshot 3.jpg" width=200 />
+
+<img src="Preview%20Images/Screenshot 4.jpg" width=200 />
 
 ## License
 
