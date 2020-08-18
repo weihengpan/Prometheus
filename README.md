@@ -8,7 +8,11 @@ It works by splitting file data into segments and encoding them into QR codes. T
 
 In experiments, *Prometheus* achieved a maximum stable throughput of 204 kbps.
 
+## Demo
+
 <img src="Preview%20Images/Transfer.gif" width=200 />
+
+A full demo video covering all the important features is [here](https://www.youtube.com/watch?v=VGoai36YrM8).
 
 ## System Requirements
 
