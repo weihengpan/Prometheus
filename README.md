@@ -8,7 +8,11 @@ It works by splitting file data into segments and encoding them into QR codes. T
 
 In experiments, *Prometheus* achieved a maximum stable throughput of 204 kbps.
 
+## Demo
+
 <img src="Preview%20Images/Transfer.gif" width=200 />
+
+A full demo video covering all the important features is [here](https://www.youtube.com/watch?v=VGoai36YrM8).
 
 ## System Requirements
 
@@ -71,7 +75,7 @@ The example file [Alice in Wonderland.txt](https://github.com/weihengpan/Prometh
 
 ## Acknowledgement
 
-This software is an outcome of a research project at the Undergraduate Summer Research Internship Programme 2020 organized by the Faculty of Engineering of CUHK. 
+This software is an outcome of a research project at the Undergraduate Summer Research Internship Programme 2020 organized by the Faculty of Engineering of CUHK. It was selected as the Best Project Award, for which only the top 10% projects were eligible.
 
 You may use it for research purposes, subject to the terms and conditions imposed by the MIT License. 
 
