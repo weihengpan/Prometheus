@@ -787,17 +787,17 @@
                                 </constraints>
                             </view>
                             <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="OKN-5o-qBY">
-                                <rect key="frame" x="20" y="128" width="374" height="665"/>
+                                <rect key="frame" x="20" y="128" width="374" height="610"/>
                                 <subviews>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9JZ-wx-9ki" customClass="MetalRenderView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="26" y="0.0" width="322.5" height="322.5"/>
+                                        <rect key="frame" x="39.5" y="0.0" width="295" height="295"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="9JZ-wx-9ki" secondAttribute="height" multiplier="1:1" id="YT5-86-90M"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="bry-3y-fTQ" customClass="MetalRenderView" customModule="Prometheus" customModuleProvider="target">
-                                        <rect key="frame" x="26" y="342.5" width="322.5" height="322.5"/>
+                                        <rect key="frame" x="39.5" y="315" width="295" height="295"/>
                                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                         <constraints>
                                             <constraint firstAttribute="width" secondItem="bry-3y-fTQ" secondAttribute="height" multiplier="1:1" id="ffa-LN-7sT"/>
@@ -819,7 +819,7 @@
                                 </connections>
                             </button>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Nhd-up-6FJ" customClass="PreviewView" customModule="Prometheus" customModuleProvider="target">
-                                <rect key="frame" x="20" y="657.5" width="76" height="135.5"/>
+                                <rect key="frame" x="20" y="758" width="19.5" height="35"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <constraints>
                                     <constraint firstAttribute="width" secondItem="Nhd-up-6FJ" secondAttribute="height" multiplier="9:16" id="4Wf-hy-zXt"/>
@@ -830,9 +830,8 @@
                         <constraints>
                             <constraint firstItem="J2a-oy-Qto" firstAttribute="top" relation="greaterThanOrEqual" secondItem="5og-HF-8Bk" secondAttribute="bottom" constant="20" id="2Ez-79-wTV"/>
                             <constraint firstItem="5og-HF-8Bk" firstAttribute="top" secondItem="O1u-W8-tvY" secondAttribute="top" priority="750" constant="20" id="4fY-T3-qtu"/>
-                            <constraint firstItem="O1u-W8-tvY" firstAttribute="bottom" secondItem="Nhd-up-6FJ" secondAttribute="bottom" constant="20" id="5vL-Rv-Wgu"/>
                             <constraint firstItem="5og-HF-8Bk" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="O1u-W8-tvY" secondAttribute="leading" constant="20" id="9hL-bU-vNx"/>
-                            <constraint firstItem="Nhd-up-6FJ" firstAttribute="top" secondItem="5og-HF-8Bk" secondAttribute="bottom" constant="20" id="GtF-0R-z6J"/>
+                            <constraint firstItem="O1u-W8-tvY" firstAttribute="bottom" secondItem="Nhd-up-6FJ" secondAttribute="bottom" constant="20" id="G90-7f-65I"/>
                             <constraint firstItem="O1u-W8-tvY" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="OKN-5o-qBY" secondAttribute="bottom" constant="20" id="IiD-1v-4k9"/>
                             <constraint firstItem="OKN-5o-qBY" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="JcE-JY-oq8"/>
                             <constraint firstItem="J2a-oy-Qto" firstAttribute="centerX" secondItem="O1u-W8-tvY" secondAttribute="centerX" id="KQ0-F7-hhq"/>
@@ -847,6 +846,7 @@
                             <constraint firstItem="OKN-5o-qBY" firstAttribute="top" relation="greaterThanOrEqual" secondItem="O1u-W8-tvY" secondAttribute="top" constant="40" id="se8-59-e3c"/>
                             <constraint firstItem="OKN-5o-qBY" firstAttribute="top" secondItem="O1u-W8-tvY" secondAttribute="top" constant="40" id="ydM-aU-DAG"/>
                             <constraint firstItem="5og-HF-8Bk" firstAttribute="centerX" secondItem="QS5-Rx-YEW" secondAttribute="centerX" id="zbp-kF-uWz"/>
+                            <constraint firstItem="Nhd-up-6FJ" firstAttribute="top" secondItem="bry-3y-fTQ" secondAttribute="bottom" constant="20" id="zeM-xD-d9m"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="O1u-W8-tvY"/>
                     </view>

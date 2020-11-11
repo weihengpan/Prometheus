@@ -54,6 +54,11 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         UIApplication.shared.isIdleTimerDisabled = true
         
         proceedToNextStateAndUpdateUI(updateUIOnly: true)
+        
+        // Hide preview view in simplex mode
+        if usesDuplexMode == false {
+            previewView.isHidden = true
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
