@@ -276,8 +276,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
     
     
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
                 
         guard let session = self.session else { return }
         if session.isRunning == false {
@@ -286,8 +286,8 @@ final class ReceiveViewController: UIViewController, AVCaptureDataOutputSynchron
         
     }
     
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
         
         guard let session = self.session else { return }
         if session.isRunning {

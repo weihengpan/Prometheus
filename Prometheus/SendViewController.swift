@@ -61,8 +61,8 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         
         guard let session = session else { return }
         if usesDuplexMode && session.isRunning == false {
@@ -70,8 +70,8 @@ final class SendViewController: UIViewController, AVCaptureVideoDataOutputSample
         }
     }
     
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
         
         guard let session = session else { return }
         if usesDuplexMode && session.isRunning {
